@@ -43,8 +43,44 @@ The default teaching scenario is a **Solo Project Assistant** that can help plan
 - [Product baseline](docs/PRODUCT_BASELINE.md)
 - [Chat API contract](docs/CHAT_CONTRACT.md)
 - [Workshop prerequisites](docs/WORKSHOP_PREREQUISITES.md)
+- [Local setup](docs/LOCAL_SETUP.md)
+- [Local operations and recovery](docs/LOCAL_OPERATIONS.md)
+- [Local troubleshooting](docs/TROUBLESHOOTING.md)
 - [Phased implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
-## Phase 0 status
+## Start the local foundation
 
-Phase 0 defines the teaching audience, supported environments, default scenario, scope, contracts, success measures, and local-release definition of done. Runtime implementation begins in Phase 1.
+Before starting, install Docker Desktop and wait until its engine is running.
+
+### macOS
+
+Double-click `setup.command`.
+
+### Windows
+
+Double-click `setup-windows.cmd`.
+
+The first setup:
+
+1. Generates a private local encryption key.
+2. Checks Docker and the required localhost ports.
+3. Downloads pinned container images.
+4. Starts n8n and the chat foundation.
+5. Waits until both services are healthy.
+
+Then open:
+
+- Chat foundation: [http://localhost:3000](http://localhost:3000)
+- n8n editor: [http://localhost:5678](http://localhost:5678)
+
+Technical contributors can run:
+
+```bash
+./scripts/setup.sh
+```
+
+## Current status
+
+Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, health checks, lifecycle scripts, backup and restore, and cross-platform setup guidance.
+
+The learner-built chat interface and Claude agent workflow are implemented in later phases.

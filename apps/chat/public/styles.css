@@ -1,0 +1,138 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #f4f0ff;
+  color: #211a2f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgb(126 87 194 / 22%), transparent 38rem),
+    #f8f6fc;
+}
+
+.shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.card {
+  width: min(42rem, 100%);
+  padding: clamp(2rem, 6vw, 4rem);
+  border: 1px solid rgb(67 48 95 / 14%);
+  border-radius: 1.75rem;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 2rem 5rem rgb(59 36 92 / 14%);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #6745a2;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.35rem, 8vw, 4.75rem);
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.lede {
+  max-width: 35rem;
+  margin: 1.75rem 0;
+  color: #5c526b;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  background: #edf9ef;
+  color: #225d2f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.status__dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #36a852;
+  box-shadow: 0 0 0 0.25rem rgb(54 168 82 / 16%);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  margin-top: 2rem;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.1rem;
+  border-radius: 0.8rem;
+  background: #624099;
+  color: white;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.button:hover,
+.button:focus-visible {
+  background: #4f337d;
+}
+
+.link {
+  color: #563789;
+  font-weight: 750;
+}
+
+.note {
+  margin: 2rem 0 0;
+  color: #776d82;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+code {
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.35rem;
+  background: #eee9f5;
+  color: #43305e;
+}
+
+@media (max-width: 34rem) {
+  .shell {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1.75rem;
+    border-radius: 1.25rem;
+  }
+}

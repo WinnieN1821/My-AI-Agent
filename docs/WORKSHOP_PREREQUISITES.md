@@ -80,7 +80,7 @@ Before the main workshop, every learner should:
 7. Sign in to GitHub Desktop.
 8. Confirm possession of a private Claude API key with available credit.
 
-The Phase 1 implementation will provide the exact start and preflight scripts.
+Use `setup.command` on macOS or `setup-windows.cmd` on Windows for the full local preflight and first start.
 
 ## Instructor preparation
 
