@@ -8,6 +8,7 @@ At the end of this guide:
 - The Claude API key will be stored only in n8n's encrypted credential store.
 - The browser chat will send messages through n8n to Claude.
 - Each browser conversation will have separate short-term memory.
+- Local task and audit tables will contain three starter tasks.
 - A second, credential-free workflow will provide a safe local health check.
 
 Allow about 15 minutes after the local stack is running.
@@ -26,7 +27,7 @@ Anthropic API access is billed separately from a Claude web-chat subscription. T
 
 ## 1. Import the workflows
 
-The repository includes two reviewed workflow exports. Learners do not need to build the nodes from a blank canvas.
+The repository includes six reviewed workflow exports. Learners do not need to build the nodes from a blank canvas.
 
 ### macOS
 
@@ -38,12 +39,20 @@ If macOS blocks it, Control-click the file, choose **Open**, then confirm.
 
 Double-click `import-workflows-windows.cmd`.
 
-The import opens a terminal, checks the workflow files, starts n8n if needed, imports both workflows, and restarts n8n. It does not import an API key or publish a workflow.
+The import opens a terminal, checks the workflow files, starts n8n if needed, and imports all six workflows. It briefly enables a localhost-only setup endpoint to create the task tables and sample rows, immediately removes that endpoint, and leaves the read-only `list_tasks` subworkflow ready for the main agent. It does not import an API key.
 
-Refresh the n8n Projects page. These inactive drafts should appear:
+Refresh the n8n Projects page. All six workflows should appear:
 
 - `00 - START HERE - Project Partner`
+- `10 - SETUP - Local Task Data`
+- `20 - TOOL - list_tasks`
+- `21 - TOOL - create_task`
+- `22 - TOOL - update_task_status`
 - `90 - DEBUG - Agent Health`
+
+The read-only `list_tasks` workflow is published automatically because the main agent depends on it. The other five remain inactive drafts.
+
+Open **Data tables** in n8n. The `tasks` table should contain three rows, and `tool_audit` should be empty until a task tool runs.
 
 ## 2. Create an Anthropic API key
 
@@ -84,6 +93,7 @@ Open `00 - START HERE - Project Partner`. The sticky notes describe the three pa
 | **Project Partner Agent** | Applies the assistant instructions and controls the number of model steps |
 | **Claude - Sonnet 4.6** | Calls Claude using the n8n credential |
 | **Conversation Memory** | Keeps six interactions for each browser session while n8n remains running |
+| **list_tasks** | Retrieves task facts through the reviewed read-only subworkflow |
 | **Return Agent Reply** | Returns only `sessionId`, `reply`, and `runId` |
 | **Return Invalid Request** | Returns a safe 400 or 413 response without calling Claude |
 
@@ -126,6 +136,10 @@ Open [http://localhost:3000](http://localhost:3000) and try:
 
 > Help me turn my project idea into three clear next steps.
 
+Then try:
+
+> What tasks are in my local project?
+
 A successful request follows this path:
 
 ```mermaid
@@ -135,11 +149,14 @@ flowchart LR
     Validate --> Agent["Project Partner Agent"]
     Model["Claude Sonnet 4.6"] -. model .-> Agent
     Memory["Session memory"] -. context .-> Agent
+    Tasks["Read-only list_tasks tool"] -. local facts .-> Agent
     Agent --> Response["Stable JSON response"]
     Response --> Browser
 ```
 
 The browser creates a `sessionId` and reuses it for the conversation. Select **New conversation** to create a separate session.
+
+In Phase 4, only the read-only task tool is connected. Asking the agent to create a task or change a status should produce a proposal, not a write. Phase 5 adds the required confirmation boundary before those two tools are enabled.
 
 ## Memory and restart behaviour
 
@@ -181,6 +198,14 @@ Run the complete isolated Phase 3 smoke test:
 ```
 
 The smoke test creates a separate Docker project and a fake local Anthropic endpoint. It proves imports, publication, invalid-input blocking, the browser-to-agent path, memory isolation, output limits, and restart behaviour without consuming API credit.
+
+Run the Phase 4 task-tool smoke test:
+
+```bash
+./scripts/test-phase4.sh
+```
+
+It proves repeatable table setup, exact task reads, invalid-input rejection, idempotent creation, narrow status updates, complete audit rows, and the agent's read-only tool path.
 
 Export timestamped copies of visually edited workflows:
 

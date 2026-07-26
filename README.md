@@ -46,6 +46,7 @@ The default teaching scenario is a **Solo Project Assistant** that can help plan
 - [Workshop prerequisites](docs/WORKSHOP_PREREQUISITES.md)
 - [Local setup](docs/LOCAL_SETUP.md)
 - [Connect the visual n8n agent to Claude](docs/N8N_AGENT_SETUP.md)
+- [Understand and extend the local task tools](docs/LOCAL_TASK_TOOLS.md)
 - [Local operations and recovery](docs/LOCAL_OPERATIONS.md)
 - [Local troubleshooting](docs/TROUBLESHOOTING.md)
 - [Phased implementation plan](docs/IMPLEMENTATION_PLAN.md)
@@ -86,7 +87,7 @@ Technical contributors can run:
 After both services are healthy:
 
 1. Create the local n8n owner account at [http://localhost:5678](http://localhost:5678).
-2. Import the two supplied workflows:
+2. Import the supplied workflows and local sample data:
    - macOS: double-click `import-workflows.command`.
    - Windows: double-click `import-workflows-windows.cmd`.
 3. Follow [Connect the visual n8n agent to Claude](docs/N8N_AGENT_SETUP.md) to add an Anthropic API credential and publish the workflows.
@@ -94,6 +95,6 @@ After both services are healthy:
 
 ## Current status
 
-Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, lifecycle scripts, and recovery guidance. Phase 2 adds the learner-built chat interface, a TypeScript gateway, a stable API contract, safe error handling, and one-file customisation. Phase 3 adds the visual n8n agent, Claude connection, per-conversation memory, safe validation, workflow import and export helpers, and an isolated automated smoke test.
+Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, lifecycle scripts, and recovery guidance. Phase 2 adds the learner-built chat interface, a TypeScript gateway, a stable API contract, safe error handling, and one-file customisation. Phase 3 adds the visual n8n agent, Claude connection, per-conversation memory, safe validation, workflow import and export helpers, and an isolated automated smoke test. Phase 4 adds local task and audit Data Tables, three narrow tool subworkflows, sample data, strict validation, and idempotent writes.
 
-The agent can now hold a local conversation. Project-management tools and confirmation-gated actions arrive in Phase 4.
+The agent can now retrieve factual local tasks with `list_tasks`. The create and status-update subworkflows are implemented and tested but deliberately remain disconnected from the model until Phase 5 adds exact, expiring user confirmation.

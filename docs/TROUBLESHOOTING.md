@@ -59,6 +59,8 @@ The browser intentionally does not show raw workflow errors or credentials.
 
 Imports remain inactive until a learner deliberately selects the credential and publishes the workflow.
 
+The `list_tasks` subworkflow is the exception: the import helper publishes that read-only dependency automatically.
+
 ## Claude credential is missing or invalid
 
 Open `00 - START HERE - Project Partner`, then open **Claude - Sonnet 4.6**.
@@ -97,6 +99,37 @@ If n8n did not restart:
 3. Check that **Conversation Memory** remains connected to the agent in the workflow.
 
 Durable conversation history is deferred from the local beginner release.
+
+## The agent says local task data is not ready
+
+Run the workflow import command again. It safely recreates missing table schemas and adds only missing sample rows.
+
+Then:
+
+1. Open **Data tables** in n8n.
+2. Confirm both `tasks` and `tool_audit` exist.
+3. Confirm `20 - TOOL - list_tasks` is published.
+4. Publish `00 - START HERE - Project Partner` again if the import refreshed its draft.
+
+Do not create a replacement table with different column names; the reviewed tools intentionally expect the documented schema.
+
+## The agent will not create or update a task
+
+This is intentional in Phase 4. Only `list_tasks` is connected to the model. The create and status-update workflows are implemented and tested, but Phase 5 must add exact, expiring, single-use confirmation before they become available to the agent.
+
+Do not connect those write workflows directly as a shortcut.
+
+## A task tool reports an invalid input
+
+The task tools reject:
+
+- Empty or longer-than-120-character titles.
+- Descriptions longer than 2,000 characters.
+- Unknown statuses or priorities.
+- Invalid dates and task IDs.
+- Reused request IDs containing different details.
+
+Correct the specific field named in the response and retry. Every rejected attempt is also visible in `tool_audit`; it does not create or update a task.
 
 ## Chat customisation did not appear
 
