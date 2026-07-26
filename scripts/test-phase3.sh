@@ -101,7 +101,13 @@ compose restart n8n >/dev/null
 compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
 health_response="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     "http://127.0.0.1:${N8N_PORT}/webhook/agent-health"
 )"
 expect_contains "${health_response}" '"status":"ok"' "safe health response"
@@ -178,6 +184,14 @@ fetch('http://127.0.0.1:3000/api/chat', {
 printf 'Checking documented in-memory restart behaviour...\n'
 compose restart n8n >/dev/null
 compose up -d --wait --wait-timeout 240 n8n chat >/dev/null
+curl \
+  --retry 30 \
+  --retry-delay 1 \
+  --retry-all-errors \
+  --fail \
+  --silent \
+  --show-error \
+  "http://127.0.0.1:${N8N_PORT}/webhook/agent-health" >/dev/null
 forgotten_response="$(
   post_chat "${memory_session}" "What is my launch called?"
 )"

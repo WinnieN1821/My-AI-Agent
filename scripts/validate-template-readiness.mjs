@@ -58,6 +58,7 @@ const requiredFiles = [
   "tests/phase7/package-lock.json",
   "tests/phase7/package.json",
   "tests/phase7/test-pilot-evaluator.mjs",
+  "tests/phase7/lsof-conflict-fixture.sh",
   ".github/workflows/ci.yml",
 ];
 

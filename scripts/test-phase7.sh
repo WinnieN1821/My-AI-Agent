@@ -138,12 +138,21 @@ tar \
   printf 'N8N_ENCRYPTION_KEY=%s\n' "${TEST_ENCRYPTION_KEY}"
 } >"${COPY_ROOT}/.env"
 set +e
+preflight_path="${PATH}"
+if ! lsof -nP -iTCP:"${CHAT_PORT}" -sTCP:LISTEN -t >/dev/null 2>&1; then
+  mkdir -p "${TEMP_ROOT}/conflict-fixture-bin"
+  ln -s \
+    "${COPY_ROOT}/tests/phase7/lsof-conflict-fixture.sh" \
+    "${TEMP_ROOT}/conflict-fixture-bin/lsof"
+  preflight_path="${TEMP_ROOT}/conflict-fixture-bin:${PATH}"
+fi
 preflight_output="$(
   env \
     -u COMPOSE_PROJECT_NAME \
     -u CHAT_PORT \
     -u N8N_PORT \
     -u N8N_ENCRYPTION_KEY \
+    PATH="${preflight_path}" \
     "${COPY_ROOT}/scripts/preflight.sh" 2>&1
 )"
 preflight_status=$?

@@ -78,18 +78,9 @@ jobs:
           }
 
   docker-smoke:
-    name: Docker smoke (${{ matrix.phase }})
+    name: Docker smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        phase:
-          - phase3
-          - phase4
-          - phase5
-          - phase6
-          - phase7
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -97,5 +88,17 @@ jobs:
       - name: Install smoke-test host tools
         run: sudo apt-get update && sudo apt-get install --yes jq lsof
 
-      - name: Run ${{ matrix.phase }} smoke test
-        run: ./scripts/test-${{ matrix.phase }}.sh
+      - name: Run Phase 3 agent smoke
+        run: ./scripts/test-phase3.sh
+
+      - name: Run Phase 4 tool smoke
+        run: ./scripts/test-phase4.sh
+
+      - name: Run Phase 5 safety smoke
+        run: ./scripts/test-phase5.sh
+
+      - name: Run Phase 6 packaging smoke
+        run: ./scripts/test-phase6.sh
+
+      - name: Run Phase 7 validation smoke
+        run: ./scripts/test-phase7.sh

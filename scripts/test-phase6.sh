@@ -174,7 +174,13 @@ compose restart n8n >/dev/null
 compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
 task_list="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/phase4-test-list" \
     -H 'Content-Type: application/json' \
     --data "{\"sessionId\":\"${SESSION_ID}\",\"status\":\"all\",\"priority\":\"all\"}"
@@ -277,6 +283,14 @@ compose exec -T n8n \
 compose restart n8n >/dev/null
 compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
+curl \
+  --retry 30 \
+  --retry-delay 1 \
+  --retry-all-errors \
+  --fail \
+  --silent \
+  --show-error \
+  "http://127.0.0.1:${N8N_PORT}/webhook/agent-health" >/dev/null
 diagnostic_after="$("${COPY_ROOT}/scripts/diagnose.sh" 2>&1)"
 expect_contains "${diagnostic_after}" \
   "Anthropic credential exists and is selected" \

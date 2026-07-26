@@ -39,6 +39,37 @@ else {
 $setupPublished = $false
 $skillSyncPublished = $false
 
+function Invoke-WebhookWhenReady {
+    param(
+        [string]$Uri,
+        [string]$Body = "",
+        [string]$ContentType = ""
+    )
+
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 30; $attempt += 1) {
+        try {
+            $parameters = @{
+                Method = "Post"
+                Uri = $Uri
+            }
+            if ($ContentType) {
+                $parameters.ContentType = $ContentType
+                $parameters.Body = $Body
+            }
+            return Invoke-RestMethod @parameters
+        }
+        catch {
+            $lastError = $_
+            if ($attempt -lt 30) {
+                Start-Sleep -Seconds 1
+            }
+        }
+    }
+
+    throw "n8n became healthy but the published webhook was not ready after 30 seconds. $lastError"
+}
+
 try {
     Write-Host "`nPreparing local data, enabled skills, and reviewed tool dependencies..."
     Invoke-Compose @(
@@ -83,8 +114,7 @@ try {
     Invoke-Compose @("restart", "n8n") *> $null
     Invoke-Compose @("up", "-d", "--wait", "--wait-timeout", "240", "n8n") *> $null
 
-    $setupResult = Invoke-RestMethod `
-        -Method Post `
+    $setupResult = Invoke-WebhookWhenReady `
         -Uri "http://127.0.0.1:$n8nPort/webhook/setup-task-data"
     if (-not $setupResult.ok) {
         throw "Local task setup returned an unexpected response."
@@ -99,8 +129,7 @@ try {
         throw "Enabled skill validation failed."
     }
 
-    $skillResult = Invoke-RestMethod `
-        -Method Post `
+    $skillResult = Invoke-WebhookWhenReady `
         -Uri "http://127.0.0.1:$n8nPort/webhook/sync-enabled-skills" `
         -ContentType "application/json" `
         -Body $skillBundle

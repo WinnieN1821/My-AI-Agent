@@ -132,7 +132,13 @@ compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
 printf 'Creating the local tables and proving setup is repeatable...\n'
 setup_response="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/setup-task-data"
 )"
 expect_contains "${setup_response}" '"ok":true' "task setup response"

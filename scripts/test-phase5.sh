@@ -181,7 +181,13 @@ compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
 printf 'Creating local tables and syncing only enabled skills...\n'
 setup_response="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/setup-task-data"
 )"
 repeat_setup_response="$(
