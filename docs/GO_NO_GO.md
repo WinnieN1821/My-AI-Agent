@@ -34,7 +34,7 @@ failed software build; a completed pilot that misses a criterion still fails.
 
 ## Technical gates
 
-- [ ] The latest GitHub Actions run passes contract, static, PowerShell, and all
+- [x] The latest GitHub Actions run passes contract, static, PowerShell, and all
       Docker smoke jobs.
 - [ ] Invalid key, exhausted credit, inactive workflow, occupied port, restart,
       and no-internet scenarios have dated evidence.
@@ -43,6 +43,10 @@ failed software build; a completed pilot that misses a criterion still fails.
 - [x] No secrets, participant identity, local `.env`, backup, or n8n data were
       committed.
 - [x] A clean backup and restore drill has passed on the workshop baseline.
+
+GitHub Actions run `30198827506` passed for evidence commit `adff923` on
+2026-07-26. The second gate remains open: automated simulations passed, but the
+supervised real-account and fully offline checks have not been recorded.
 
 ## Decision record
 
