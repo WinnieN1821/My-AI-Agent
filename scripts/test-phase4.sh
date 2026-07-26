@@ -306,9 +306,9 @@ mock_metrics="$(
     node -e "fetch('http://127.0.0.1:3401/metrics').then(r=>r.text()).then(console.log)"
 )"
 expect_contains "${mock_metrics}" '"toolUseResponses":1' "mock tool metrics"
-expect_contains "${mock_metrics}" '"toolNames":["list_tasks"]' "mock tool metrics"
-expect_not_contains "${mock_metrics}" 'create_task' "model-visible tools"
-expect_not_contains "${mock_metrics}" 'update_task_status' "model-visible tools"
+expect_contains "${mock_metrics}" '"list_tasks"' "model-visible tools"
+expect_contains "${mock_metrics}" '"create_task"' "model-visible tools"
+expect_contains "${mock_metrics}" '"update_task_status"' "model-visible tools"
 
 if compose logs anthropic-mock n8n chat | grep -q "${TEST_ENCRYPTION_KEY}"; then
   fail "a test encryption key appeared in container logs"
@@ -321,5 +321,5 @@ printf '  Invalid input rejection:       ok\n'
 printf '  Idempotent task creation:      ok\n'
 printf '  Narrow status update:          ok\n'
 printf '  Tool audit records:            13\n'
-printf '  Agent-visible tools:           list_tasks only\n'
+printf '  Agent read path:               list_tasks\n'
 printf '  Chat-to-tool-to-task response: ok\n'

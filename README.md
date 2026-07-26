@@ -47,6 +47,8 @@ The default teaching scenario is a **Solo Project Assistant** that can help plan
 - [Local setup](docs/LOCAL_SETUP.md)
 - [Connect the visual n8n agent to Claude](docs/N8N_AGENT_SETUP.md)
 - [Understand and extend the local task tools](docs/LOCAL_TASK_TOOLS.md)
+- [Customise the agent with Markdown skills](docs/CUSTOMISE_SKILLS.md)
+- [Understand safe write confirmation](docs/SAFE_WRITE_CONFIRMATION.md)
 - [Local operations and recovery](docs/LOCAL_OPERATIONS.md)
 - [Local troubleshooting](docs/TROUBLESHOOTING.md)
 - [Phased implementation plan](docs/IMPLEMENTATION_PLAN.md)
@@ -92,9 +94,10 @@ After both services are healthy:
    - Windows: double-click `import-workflows-windows.cmd`.
 3. Follow [Connect the visual n8n agent to Claude](docs/N8N_AGENT_SETUP.md) to add an Anthropic API credential and publish the workflows.
 4. Send the first message from the chat app.
+5. Change one enabled Markdown skill using [CUSTOMISE_SKILLS.md](docs/CUSTOMISE_SKILLS.md).
 
 ## Current status
 
-Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, lifecycle scripts, and recovery guidance. Phase 2 adds the learner-built chat interface, a TypeScript gateway, a stable API contract, safe error handling, and one-file customisation. Phase 3 adds the visual n8n agent, Claude connection, per-conversation memory, safe validation, workflow import and export helpers, and an isolated automated smoke test. Phase 4 adds local task and audit Data Tables, three narrow tool subworkflows, sample data, strict validation, and idempotent writes.
+Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, lifecycle scripts, and recovery guidance. Phase 2 adds the learner-built chat interface, a TypeScript gateway, a stable API contract, safe error handling, and one-file customisation. Phase 3 adds the visual n8n agent, Claude connection, per-conversation memory, safe validation, workflow import and export helpers, and an isolated automated smoke test. Phase 4 adds local task and audit Data Tables, three narrow tool subworkflows, sample data, strict validation, and idempotent writes. Phase 5 adds reusable Markdown skills, a machine-readable tool-risk policy, and exact confirmation for task writes.
 
-The agent can now retrieve factual local tasks with `list_tasks`. The create and status-update subworkflows are implemented and tested but deliberately remain disconnected from the model until Phase 5 adds exact, expiring user confirmation.
+The agent can retrieve factual local tasks automatically and prepare create or status-update proposals. A task changes only when the same browser conversation sends the exact `CONFIRM XXXXXXXX` phrase within five minutes; each phrase is single-use. Delete, archive, and bulk-change capabilities remain unavailable.

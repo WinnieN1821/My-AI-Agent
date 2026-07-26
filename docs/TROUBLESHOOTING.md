@@ -57,9 +57,7 @@ The browser intentionally does not show raw workflow errors or credentials.
 4. Run the import command again; the fixed workflow IDs prevent duplicate copies.
 5. Ask a technical helper to run `docker compose logs --tail 100 n8n`.
 
-Imports remain inactive until a learner deliberately selects the credential and publishes the workflow.
-
-The `list_tasks` subworkflow is the exception: the import helper publishes that read-only dependency automatically.
+The main agent, health workflow, and temporary setup workflows remain inactive until deliberately published. The import helper publishes the six reviewed runtime dependencies automatically.
 
 ## Claude credential is missing or invalid
 
@@ -107,7 +105,7 @@ Run the workflow import command again. It safely recreates missing table schemas
 Then:
 
 1. Open **Data tables** in n8n.
-2. Confirm both `tasks` and `tool_audit` exist.
+2. Confirm `tasks`, `tool_audit`, `pending_actions`, and `agent_config` exist.
 3. Confirm `20 - TOOL - list_tasks` is published.
 4. Publish `00 - START HERE - Project Partner` again if the import refreshed its draft.
 
@@ -115,9 +113,28 @@ Do not create a replacement table with different column names; the reviewed tool
 
 ## The agent will not create or update a task
 
-This is intentional in Phase 4. Only `list_tasks` is connected to the model. The create and status-update workflows are implemented and tested, but Phase 5 must add exact, expiring, single-use confirmation before they become available to the agent.
+The first message only prepares a proposal. It must say that no task changed and show an exact phrase such as `CONFIRM A1B2C3D4`.
 
-Do not connect those write workflows directly as a shortcut.
+Check the proposed fields, then send the complete phrase as a separate message in the same browser conversation within five minutes.
+
+- Plain `yes` is deliberately insufficient.
+- A phrase from another browser conversation cannot work.
+- A newer proposal supersedes the older phrase.
+- An expired or already-used phrase requires a new proposal.
+
+If a correct new phrase still fails, confirm workflows `30`, `31`, `40`, `21`, and `22` are published and rerun workflow import. Do not connect write workers `21` or `22` directly to the AI Agent.
+
+See [SAFE_WRITE_CONFIRMATION.md](SAFE_WRITE_CONFIRMATION.md).
+
+## A skill change did not appear
+
+1. Save both `skill.yaml` and `SKILL.md`.
+2. Confirm the skill ID appears exactly once in `skills/enabled.txt`.
+3. Double-click `sync-skills.command` on macOS or `sync-skills-windows.cmd` on Windows.
+4. Wait for **Enabled skills synced successfully**.
+5. Start a new browser conversation.
+
+If validation fails, correct the file and rerun the helper. The previously valid bundle stays active. See [CUSTOMISE_SKILLS.md](CUSTOMISE_SKILLS.md).
 
 ## A task tool reports an invalid input
 

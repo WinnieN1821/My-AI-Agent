@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Phase 4 turns the conversational assistant into an agent that can retrieve structured facts. It also prepares two tightly scoped write operations for the confirmation boundary added in Phase 5.
+Phase 4 turns the conversational assistant into an agent that can retrieve structured facts and provides two tightly scoped write workers. Phase 5 places proposal and confirmation workflows in front of those workers.
 
 Learners can:
 
@@ -13,9 +13,9 @@ Learners can:
 
 Technical contributors can extend the task schema and tools without giving the model arbitrary database, HTTP, filesystem, or command access.
 
-## The two local tables
+## The two core task tables
 
-The import helper creates both tables with n8n's built-in [Data Tables](https://docs.n8n.io/data/data-tables/).
+The import helper creates both core task tables with n8n's built-in [Data Tables](https://docs.n8n.io/data/data-tables/). Phase 5 also creates `pending_actions` for confirmation state and `agent_config` for enabled skills; those are documented in [SAFE_WRITE_CONFIRMATION.md](SAFE_WRITE_CONFIRMATION.md) and [CUSTOMISE_SKILLS.md](CUSTOMISE_SKILLS.md).
 
 ### `tasks`
 
@@ -50,16 +50,21 @@ Audit rows are operational records, not conversation memory. They persist across
 
 ## The workflow set
 
-| Workflow | Risk | Model access in Phase 4 | Data-table operations |
+| Workflow | Risk | Current access | Data-table operations |
 | --- | --- | --- | --- |
 | `10 - SETUP - Local Task Data` | Setup | None | Create tables; insert missing samples |
 | `20 - TOOL - list_tasks` | Read | Connected | Get up to 100 task rows; insert audit |
-| `21 - TOOL - create_task` | Write | Disconnected | Lookup request ID; insert one task; insert audit |
-| `22 - TOOL - update_task_status` | Write | Disconnected | Lookup task ID; update status and idempotency marker; insert audit |
+| `21 - TOOL - create_task` | Write | Confirmation executor only | Lookup request ID; insert one task; insert audit |
+| `22 - TOOL - update_task_status` | Write | Confirmation executor only | Lookup task ID; update status and idempotency marker; insert audit |
+| `30 - TOOL - Propose create_task` | Write proposal | Connected | Store exact pending action; no task mutation |
+| `31 - TOOL - Propose update_task_status` | Write proposal | Connected | Read one task and store an exact pending action |
+| `40 - CONFIRM - Task Write` | Write dispatcher | Deterministic main-workflow branch | Consume one matching proposal, then call one worker |
 
 Each tool starts with a typed Execute Workflow Trigger. n8n documents this pattern under [subworkflows](https://docs.n8n.io/flow-logic/subworkflows/) and the [Call n8n Workflow Tool](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.toolworkflow/).
 
-Only `list_tasks` is connected to the AI Agent. A model cannot call either write workflow in Phase 4. Phase 5 will place confirmation in front of those writes; do not connect them directly.
+`list_tasks` runs automatically. The model-facing `create_task` and `update_task_status` names point to workflows `30` and `31`, which cannot mutate the `tasks` table. A model cannot call either execution worker or workflow `40`.
+
+See [SAFE_WRITE_CONFIRMATION.md](SAFE_WRITE_CONFIRMATION.md) for the exact, expiring, single-use boundary.
 
 ## Trace a factual read
 
@@ -140,4 +145,6 @@ The test uses a separate Docker project and a fake Anthropic endpoint. It verifi
 - Invalid, missing, successful, and repeated status updates.
 - Complete audit records.
 - The browser-to-agent-to-`list_tasks` path.
-- The absence of create and update tools from the model-visible tool list.
+- Model-visible create and update names resolve only to proposal workflows.
+
+Run `./scripts/test-phase5.sh` for the confirmation, expiry, single-use, skill-loading, and destructive-tool checks.

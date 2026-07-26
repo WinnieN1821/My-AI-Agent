@@ -154,7 +154,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        260,
+        520,
         100
       ],
       "id": "40000000-0000-4000-8000-000000000005",
@@ -183,7 +183,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        520,
+        780,
         100
       ],
       "id": "40000000-0000-4000-8000-000000000006",
@@ -217,7 +217,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        760,
+        1040,
         100
       ],
       "id": "40000000-0000-4000-8000-000000000010",
@@ -317,7 +317,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1020,
+        1300,
         20
       ],
       "id": "40000000-0000-4000-8000-000000000007",
@@ -332,11 +332,65 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
+        1560,
         100
       ],
       "id": "40000000-0000-4000-8000-000000000011",
       "name": "Setup Complete"
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "pending_actions",
+        "columns": {
+          "column": [
+            {
+              "name": "actionId",
+              "type": "string"
+            },
+            {
+              "name": "sessionId",
+              "type": "string"
+            },
+            {
+              "name": "actionType",
+              "type": "string"
+            },
+            {
+              "name": "proposedInput",
+              "type": "string"
+            },
+            {
+              "name": "confirmationText",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            },
+            {
+              "name": "expiresAt",
+              "type": "date"
+            },
+            {
+              "name": "consumedAt",
+              "type": "date"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        100
+      ],
+      "id": "50000000-0000-4000-8000-000000000001",
+      "name": "Create Pending Actions Table"
     }
   ],
   "pinData": {},
@@ -378,7 +432,7 @@
       "main": [
         [
           {
-            "node": "Define Sample Tasks",
+            "node": "Create Pending Actions Table",
             "type": "main",
             "index": 0
           }
@@ -435,6 +489,17 @@
           }
         ]
       ]
+    },
+    "Create Pending Actions Table": {
+      "main": [
+        [
+          {
+            "node": "Define Sample Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -447,8 +512,9 @@
   },
   "versionId": "40000000-0000-4000-8000-000000000099",
   "meta": {
-    "phase": 4,
-    "testedWithN8n": "2.30.5"
+    "phase": 5,
+    "testedWithN8n": "2.30.5",
+    "confirmationState": "pending_actions"
   },
   "id": "phase4TaskSetup",
   "tags": []

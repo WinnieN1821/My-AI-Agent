@@ -8,7 +8,8 @@ At the end of this guide:
 - The Claude API key will be stored only in n8n's encrypted credential store.
 - The browser chat will send messages through n8n to Claude.
 - Each browser conversation will have separate short-term memory.
-- Local task and audit tables will contain three starter tasks.
+- Local tables will contain three starter tasks and the enabled skill bundle.
+- Creating or updating a task will require an exact, expiring confirmation.
 - A second, credential-free workflow will provide a safe local health check.
 
 Allow about 15 minutes after the local stack is running.
@@ -27,7 +28,7 @@ Anthropic API access is billed separately from a Claude web-chat subscription. T
 
 ## 1. Import the workflows
 
-The repository includes six reviewed workflow exports. Learners do not need to build the nodes from a blank canvas.
+The repository includes ten reviewed workflow exports. Learners do not need to build the nodes from a blank canvas.
 
 ### macOS
 
@@ -39,20 +40,29 @@ If macOS blocks it, Control-click the file, choose **Open**, then confirm.
 
 Double-click `import-workflows-windows.cmd`.
 
-The import opens a terminal, checks the workflow files, starts n8n if needed, and imports all six workflows. It briefly enables a localhost-only setup endpoint to create the task tables and sample rows, immediately removes that endpoint, and leaves the read-only `list_tasks` subworkflow ready for the main agent. It does not import an API key.
+The import opens a terminal, checks the workflows and Markdown skills, starts n8n if needed, and imports all ten workflows. It briefly enables localhost-only setup endpoints to create local tables and sync enabled skills, then immediately removes both endpoints. It publishes the reviewed runtime subworkflows but does not publish the main agent, health workflow, or an API key.
 
-Refresh the n8n Projects page. All six workflows should appear:
+Refresh the n8n Projects page. All ten workflows should appear:
 
 - `00 - START HERE - Project Partner`
 - `10 - SETUP - Local Task Data`
+- `11 - SETUP - Sync Enabled Skills`
 - `20 - TOOL - list_tasks`
 - `21 - TOOL - create_task`
 - `22 - TOOL - update_task_status`
+- `30 - TOOL - Propose create_task`
+- `31 - TOOL - Propose update_task_status`
+- `40 - CONFIRM - Task Write`
 - `90 - DEBUG - Agent Health`
 
-The read-only `list_tasks` workflow is published automatically because the main agent depends on it. The other five remain inactive drafts.
+The six runtime dependencies—read tool, two proposal tools, confirmation dispatcher, and two write workers—are published automatically. The write workers are callable only by workflow `40`; no AI Tool node points to them. The main agent, health workflow, and two temporary setup workflows remain inactive drafts.
 
-Open **Data tables** in n8n. The `tasks` table should contain three rows, and `tool_audit` should be empty until a task tool runs.
+Open **Data tables** in n8n:
+
+- `tasks` contains three rows.
+- `tool_audit` is empty until a task tool runs.
+- `pending_actions` is empty until the agent proposes a write.
+- `agent_config` contains one `enabledSkills` row.
 
 ## 2. Create an Anthropic API key
 
@@ -83,17 +93,22 @@ The key is encrypted using the private n8n encryption key generated during local
 
 ## 4. Inspect and publish the agent
 
-Open `00 - START HERE - Project Partner`. The sticky notes describe the three parts of the workflow.
+Open `00 - START HERE - Project Partner`. The sticky notes describe the read, proposal, and confirmation paths.
 
 | Part | What it does |
 | --- | --- |
 | **Chat Webhook** | Receives the private request from the chat gateway |
 | **Validate and Normalise** | Checks the session UUID, trims the message, and rejects empty or oversized input |
 | **Request Is Valid?** | Ensures only the valid branch can reach the agent |
+| **Route Confirmation** | Recognises only a complete `CONFIRM XXXXXXXX` message |
+| **Load Enabled Skills** | Reads the bundle compiled from `skills/enabled.txt` |
 | **Project Partner Agent** | Applies the assistant instructions and controls the number of model steps |
 | **Claude - Sonnet 4.6** | Calls Claude using the n8n credential |
 | **Conversation Memory** | Keeps six interactions for each browser session while n8n remains running |
 | **list_tasks** | Retrieves task facts through the reviewed read-only subworkflow |
+| **create_task** | Validates and stores a five-minute create proposal without changing tasks |
+| **update_task_status** | Validates and stores a five-minute status proposal without changing tasks |
+| **Confirm Stored Action** | Calls the deterministic confirmation workflow before either write worker |
 | **Return Agent Reply** | Returns only `sessionId`, `reply`, and `runId` |
 | **Return Invalid Request** | Returns a safe 400 or 413 response without calling Claude |
 
@@ -140,23 +155,39 @@ Then try:
 
 > What tasks are in my local project?
 
+Finally try:
+
+> Create a high-priority task to invite the pilot group.
+
+Check the proposed fields. Copy the returned `CONFIRM XXXXXXXX` phrase and send it as a separate message within five minutes. Plain `yes` does not approve the change.
+
 A successful request follows this path:
 
 ```mermaid
 flowchart LR
     Browser["Browser chat"] --> Gateway["TypeScript gateway"]
     Gateway --> Validate["n8n validation"]
-    Validate --> Agent["Project Partner Agent"]
+    Validate --> Route{"Exact confirmation?"}
+    Route -- No --> Skills["Enabled skills"]
+    Skills --> Agent["Project Partner Agent"]
     Model["Claude Sonnet 4.6"] -. model .-> Agent
     Memory["Session memory"] -. context .-> Agent
     Tasks["Read-only list_tasks tool"] -. local facts .-> Agent
+    Agent --> Proposal["Proposal-only write tool"]
+    Proposal --> Pending[("pending_actions")]
+    Route -- Yes --> Confirm["Deterministic confirmation"]
+    Pending --> Confirm
+    Confirm --> Write["Reviewed write worker"]
+    Write --> Response
     Agent --> Response["Stable JSON response"]
     Response --> Browser
 ```
 
 The browser creates a `sessionId` and reuses it for the conversation. Select **New conversation** to create a separate session.
 
-In Phase 4, only the read-only task tool is connected. Asking the agent to create a task or change a status should produce a proposal, not a write. Phase 5 adds the required confirmation boundary before those two tools are enabled.
+Read tools run automatically. Model-facing write tools can only store proposals. The exact phrase is bound to the same browser `sessionId` and stored arguments, expires after five minutes, and is consumed before a write. See [SAFE_WRITE_CONFIRMATION.md](SAFE_WRITE_CONFIRMATION.md).
+
+To change agent behaviour without editing the workflow, follow [CUSTOMISE_SKILLS.md](CUSTOMISE_SKILLS.md).
 
 ## Memory and restart behaviour
 
@@ -206,6 +237,14 @@ Run the Phase 4 task-tool smoke test:
 ```
 
 It proves repeatable table setup, exact task reads, invalid-input rejection, idempotent creation, narrow status updates, complete audit rows, and the agent's read-only tool path.
+
+Run the Phase 5 skills and confirmation smoke test:
+
+```bash
+./scripts/test-phase5.sh
+```
+
+It proves enabled-only skill loading, proposal-only model tools, exact session binding, expiry, supersession, single use, simultaneous retry protection, and the absence of destructive tools.
 
 Export timestamped copies of visually edited workflows:
 
