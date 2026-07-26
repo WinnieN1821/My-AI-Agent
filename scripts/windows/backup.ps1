@@ -20,6 +20,8 @@ try {
         "run",
         "--rm",
         "--no-deps",
+        "--user",
+        "0:0",
         "-v",
         "${backupDir}:/backup",
         "--entrypoint",
