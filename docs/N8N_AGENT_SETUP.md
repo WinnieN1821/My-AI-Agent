@@ -5,6 +5,7 @@
 At the end of this guide:
 
 - n8n will show a small, documented visual agent workflow.
+- A five-step learner checklist will be visible beside the agent workflow.
 - The Claude API key will be stored only in n8n's encrypted credential store.
 - The browser chat will send messages through n8n to Claude.
 - Each browser conversation will have separate short-term memory.
@@ -26,9 +27,13 @@ Complete [LOCAL_SETUP.md](LOCAL_SETUP.md), then confirm:
 
 Anthropic API access is billed separately from a Claude web-chat subscription. The workspace needs a small amount of API credit before a real request can succeed. Anthropic documents [prepaid API billing](https://support.anthropic.com/en/articles/8977456-how-do-i-pay-for-my-api-usage) and [workspace spend limits](https://platform.claude.com/docs/en/manage-claude/workspaces).
 
-## 1. Import the workflows
+## 1. Confirm the automatic workflow import
 
-The repository includes ten reviewed workflow exports. Learners do not need to build the nodes from a blank canvas.
+The repository includes eleven reviewed workflow exports. First setup imports them automatically, so learners do not need to build nodes from a blank canvas.
+
+Refresh the n8n Overview. If `01 - START HERE - Learner Checklist` appears, continue to step 2.
+
+If the workflows are missing or automatic import was interrupted, use the repeatable manual fallback:
 
 ### macOS
 
@@ -40,11 +45,12 @@ If macOS blocks it, Control-click the file, choose **Open**, then confirm.
 
 Double-click `import-workflows-windows.cmd`.
 
-The import opens a terminal, checks the workflows and Markdown skills, starts n8n if needed, and imports all ten workflows. It briefly enables localhost-only setup endpoints to create local tables and sync enabled skills, then immediately removes both endpoints. It publishes the reviewed runtime subworkflows but does not publish the main agent, health workflow, or an API key.
+The fallback opens a terminal, checks the workflows and Markdown skills, starts n8n if needed, and imports all eleven workflows. It briefly enables localhost-only setup endpoints to create local tables and sync enabled skills, then immediately removes both endpoints. It publishes the reviewed runtime subworkflows but does not publish the main agent, health workflow, or an API key.
 
-Refresh the n8n Projects page. All ten workflows should appear:
+Refresh the n8n Overview. All eleven workflows should appear:
 
 - `00 - START HERE - Project Partner`
+- `01 - START HERE - Learner Checklist`
 - `10 - SETUP - Local Task Data`
 - `11 - SETUP - Sync Enabled Skills`
 - `20 - TOOL - list_tasks`
@@ -55,7 +61,7 @@ Refresh the n8n Projects page. All ten workflows should appear:
 - `40 - CONFIRM - Task Write`
 - `90 - DEBUG - Agent Health`
 
-The six runtime dependencies—read tool, two proposal tools, confirmation dispatcher, and two write workers—are published automatically. The write workers are callable only by workflow `40`; no AI Tool node points to them. The main agent, health workflow, and two temporary setup workflows remain inactive drafts.
+The six runtime dependencies—read tool, two proposal tools, confirmation dispatcher, and two write workers—are published automatically. The write workers are callable only by workflow `40`; no AI Tool node points to them. The main agent, health workflow, and two temporary setup workflows remain inactive drafts. The learner checklist is an inactive visual guide that can be opened or run manually.
 
 Open **Data tables** in n8n:
 
@@ -145,7 +151,15 @@ Open [http://localhost:5678/webhook/agent-health](http://localhost:5678/webhook/
 
 This proves that n8n can run a published workflow. It deliberately does not call Claude and does not reveal credentials, execution data, or configuration.
 
-## 6. Send the first message
+## 6. Run readiness diagnostics
+
+Double-click `diagnose.command` on macOS or `diagnose-windows.cmd` on Windows.
+
+The helper checks both services, the installed learner checklist, main workflow publication, the selected Anthropic credential, the credential-free validation path, and the health workflow. It never calls Claude or displays credential values.
+
+Resolve each yellow `[next]` line. Continue when it reports **All checks are green**.
+
+## 7. Send the first message
 
 Open [http://localhost:3000](http://localhost:3000) and try:
 
@@ -246,10 +260,18 @@ Run the Phase 5 skills and confirmation smoke test:
 
 It proves enabled-only skill loading, proposal-only model tools, exact session binding, expiry, supersession, single use, simultaneous retry protection, and the absence of destructive tools.
 
+Run the Phase 6 beginner-package smoke test:
+
+```bash
+./scripts/test-phase6.sh
+```
+
+It creates a fresh template-style copy and proves one-click setup, automatic import, repeatable fallback import, preservation of local workflow edits, both diagnostic states, and backup/reset/restore.
+
 Export timestamped copies of visually edited workflows:
 
 ```bash
 ./scripts/export-workflows.sh
 ```
 
-The ignored `n8n/exports/` directory is a review area, not the canonical source. Compare the exported JSON carefully before replacing files below `n8n/workflows/`.
+The ignored `n8n/exports/` directory is a normalised review area, not the canonical source. Follow [WORKFLOW_DEVELOPMENT.md](WORKFLOW_DEVELOPMENT.md) to compare and promote only the intended file.

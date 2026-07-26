@@ -5,6 +5,7 @@ This directory contains portable workflow exports for the local AI agent.
 | File | Purpose |
 | --- | --- |
 | `workflows/00-start-here-project-partner.json` | Validates chat requests, calls Claude, keeps session memory, and returns the chat contract |
+| `workflows/01-start-here-learner-checklist.json` | Gives learners a five-step visual path from local owner setup to a customised, diagnosed agent |
 | `workflows/10-setup-local-task-data.json` | Idempotently creates task, audit, and pending-confirmation tables plus three sample tasks |
 | `workflows/11-setup-sync-enabled-skills.json` | Validates and stores the enabled Markdown skill bundle through a temporary local endpoint |
 | `workflows/20-tool-list-tasks.json` | Validates filters, reads factual task rows, and audits the read |
@@ -23,4 +24,4 @@ Use the repository import script rather than editing JSON by hand:
 ./scripts/import-workflows.sh
 ```
 
-Workflow setup and testing are documented in [N8N_AGENT_SETUP.md](../docs/N8N_AGENT_SETUP.md). The task schema and extension rules are in [LOCAL_TASK_TOOLS.md](../docs/LOCAL_TASK_TOOLS.md); skills and confirmation are covered by [CUSTOMISE_SKILLS.md](../docs/CUSTOMISE_SKILLS.md) and [SAFE_WRITE_CONFIRMATION.md](../docs/SAFE_WRITE_CONFIRMATION.md).
+Workflow setup and testing are documented in [N8N_AGENT_SETUP.md](../docs/N8N_AGENT_SETUP.md). The task schema and extension rules are in [LOCAL_TASK_TOOLS.md](../docs/LOCAL_TASK_TOOLS.md); skills and confirmation are covered by [CUSTOMISE_SKILLS.md](../docs/CUSTOMISE_SKILLS.md) and [SAFE_WRITE_CONFIRMATION.md](../docs/SAFE_WRITE_CONFIRMATION.md). Technical contributors should use [WORKFLOW_DEVELOPMENT.md](../docs/WORKFLOW_DEVELOPMENT.md) when moving a visual edit back into Git.

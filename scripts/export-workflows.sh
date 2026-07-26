@@ -41,11 +41,15 @@ export_workflow() {
     n8n export:workflow \
     --id="${workflow_id}" \
     --pretty \
-    --output="${container_file}" >/dev/null
-  compose cp "n8n:${container_file}" "${EXPORT_DIRECTORY}/${output_name}" >/dev/null
+      --output="${container_file}" >/dev/null
+  compose cp "n8n:${container_file}" "${EXPORT_DIRECTORY}/${output_name}" \
+    >/dev/null 2>&1
+  compose exec -T n8n \
+    sh -c "rm -f -- '${container_file}'" >/dev/null
 }
 
 export_workflow "phase3StartHere" "00-start-here-project-partner.json"
+export_workflow "phase6LearnerChecklist" "01-start-here-learner-checklist.json"
 export_workflow "phase4TaskSetup" "10-setup-local-task-data.json"
 export_workflow "phase5SyncEnabledSkills" "11-setup-sync-enabled-skills.json"
 export_workflow "phase4ListTasks" "20-tool-list-tasks.json"
@@ -56,5 +60,14 @@ export_workflow "phase5ProposeTaskStatus" "31-tool-propose-update-task-status.js
 export_workflow "phase5ConfirmTaskWrite" "40-confirm-task-write.json"
 export_workflow "phase3AgentHealth" "90-debug-agent-health.json"
 
+docker run --rm \
+  -v "${PROJECT_ROOT}:/workspace:ro" \
+  -v "${EXPORT_DIRECTORY}:/exports" \
+  -w /workspace \
+  node:24.16.0-alpine3.22 \
+  node scripts/normalise-workflow-exports.mjs \
+    /exports \
+    /workspace/n8n/workflows
+
 printf 'Workflow copies exported to:\n  %s\n' "${EXPORT_DIRECTORY}"
-printf 'This folder is ignored by Git. Review credential references and the diff before replacing canonical workflow files.\n'
+printf 'This folder is ignored by Git. The copies are normalised for review, but still inspect credential references and every diff before promotion.\n'

@@ -42,9 +42,35 @@ Both services should report `healthy`.
 
 The first endpoint checks the chat service, the second checks n8n itself, and the third checks that n8n can run a published workflow. The workflow health response deliberately does not call Claude or expose credentials.
 
+## Run friendly diagnostics
+
+The diagnostic helper checks more than container health. It also confirms the reviewed checklist and main workflow are installed, the main workflow is published, an existing Anthropic credential is selected, the chat webhook is registered, and the optional health workflow is published.
+
+It sends only an intentionally invalid session ID to the chat webhook, so validation stops the request before Claude. It never decrypts or displays credential values.
+
+### macOS
+
+Double-click `diagnose.command`, or run:
+
+```bash
+./scripts/diagnose.sh
+```
+
+### Windows
+
+Double-click `diagnose-windows.cmd`, or run:
+
+```powershell
+.\scripts\windows\diagnose.ps1
+```
+
+Green `[ok]` lines are complete. Yellow `[next]` lines are safe configuration actions. Red `[!!]` lines are local service problems to resolve first.
+
 ## Import the supplied workflows
 
-Workflow import is safe to repeat. It imports the canonical repository files, prepares the local Data Tables without duplicating sample tasks, syncs the enabled Markdown skills, and publishes the reviewed runtime subworkflows. The main agent, health workflow, and two temporary setup workflows remain inactive for deliberate inspection.
+First setup imports the workflows automatically when the learner-checklist marker is absent. A later setup run preserves existing workflow edits.
+
+Manual workflow import is the repeatable repair and refresh path. It imports the canonical repository files, prepares the local Data Tables without duplicating sample tasks, syncs the enabled Markdown skills, and publishes the reviewed runtime subworkflows. It replaces workflows with matching fixed IDs, so export deliberate visual edits before using it. The main agent, health workflow, and two temporary setup workflows remain inactive for deliberate inspection.
 
 ### macOS
 
@@ -104,7 +130,9 @@ Export after making a deliberate visual workflow change:
 .\scripts\windows\export-workflows.ps1
 ```
 
-The scripts write timestamped copies below `n8n/exports/`. That directory is ignored by Git. Exports may contain credential references even though they do not contain the decrypted API key, so review them carefully before copying changes into `n8n/workflows/`.
+The scripts write timestamped, normalised copies below `n8n/exports/`. That directory is ignored by Git. The normaliser removes local ownership metadata, keeps committed workflows inactive, and restores reviewed credential references. A contributor must still inspect every diff before promoting one file into `n8n/workflows/`.
+
+Follow [WORKFLOW_DEVELOPMENT.md](WORKFLOW_DEVELOPMENT.md) for the exact export, comparison, promotion, validation, and pull-request path.
 
 The local task rows are data, not workflow JSON. They remain in the persistent n8n volume and are included by the repository backup process.
 
@@ -145,7 +173,7 @@ Backups are written below `backups/YYYYMMDD-HHMMSS` and ignored by Git.
 
 ### macOS
 
-From the repository directory:
+Double-click `backup.command`, or run:
 
 ```bash
 ./scripts/backup.sh
@@ -153,7 +181,7 @@ From the repository directory:
 
 ### Windows
 
-From PowerShell in the repository directory:
+Double-click `backup-windows.cmd`, or run from PowerShell:
 
 ```powershell
 .\scripts\windows\backup.ps1
@@ -201,17 +229,13 @@ Create a backup first if any local state matters.
 
 ### macOS
 
-```bash
-./scripts/reset.sh
-```
+Double-click `reset.command`, or run `./scripts/reset.sh`.
 
 Type `RESET` when prompted.
 
 ### Windows
 
-```powershell
-.\scripts\windows\reset.ps1
-```
+Double-click `reset-windows.cmd`, or run `.\scripts\windows\reset.ps1`.
 
 Type `RESET` when prompted.
 

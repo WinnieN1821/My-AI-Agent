@@ -22,6 +22,26 @@ compose() {
     "$@"
 }
 
+reviewed_workflows_are_installed() {
+  local diagnostic_path="/tmp/ai-solopreneur-setup-checklist.json"
+  local result=1
+
+  if compose exec -T n8n \
+    n8n export:workflow \
+      --id=phase6LearnerChecklist \
+      --output="${diagnostic_path}" >/dev/null 2>&1; then
+    if compose exec -T n8n node -e \
+      "const fs=require('fs'); const raw=JSON.parse(fs.readFileSync('${diagnostic_path}','utf8')); const workflows=Array.isArray(raw)?raw:[raw]; process.exit(workflows.some((workflow)=>workflow.id==='phase6LearnerChecklist')?0:1);" \
+      >/dev/null 2>&1; then
+      result=0
+    fi
+  fi
+
+  compose exec -T n8n \
+    sh -c "rm -f -- '${diagnostic_path}'" >/dev/null 2>&1 || true
+  return "${result}"
+}
+
 env_value() {
   local key="$1"
   local fallback="$2"
@@ -87,6 +107,17 @@ compose build chat
 printf '\nStarting AI Solopreneur...\n'
 compose up -d --wait --wait-timeout 240
 
+if reviewed_workflows_are_installed; then
+  printf '\nThe reviewed workflows are already installed; keeping local edits unchanged.\n'
+else
+  printf '\nInstalling the reviewed workflows, sample data, and enabled skills...\n'
+  if ! "${PROJECT_ROOT}/scripts/import-workflows.sh"; then
+    printf '\nAutomatic workflow import did not finish.\n' >&2
+    printf 'The local services are still available. Fix the message above, then double-click import-workflows.command.\n' >&2
+    exit 1
+  fi
+fi
+
 CHAT_PORT="$(env_value CHAT_PORT 3000)"
 N8N_PORT="$(env_value N8N_PORT 5678)"
 
@@ -96,3 +127,4 @@ curl --fail --silent --show-error "http://127.0.0.1:${N8N_PORT}/healthz" >/dev/n
 printf '\nLocal stack is healthy.\n'
 printf '  Chat app:          http://localhost:%s\n' "${CHAT_PORT}"
 printf '  n8n editor:       http://localhost:%s\n' "${N8N_PORT}"
+printf '  Next: create the local n8n owner, then open 01 - START HERE - Learner Checklist.\n'

@@ -12,8 +12,9 @@ Do not use the main workshop to install or repair Docker Desktop for the first t
 
 - Create or sign in to a GitHub account.
 - Confirm that the learner can create a repository.
-- Install GitHub Desktop unless the learner already has a preferred Git workflow.
+- Install GitHub Desktop as the default workshop Git workflow.
 - Confirm that GitHub Desktop can sign in to the learner's account.
+- Practise creating a repository from a template and cloning it.
 
 ### Anthropic Console
 
@@ -33,9 +34,11 @@ The key will be added to n8n during the workshop.
 - Docker Desktop installed.
 - Docker Desktop opened and reporting that its engine is running.
 - Current Chrome or Edge.
-- GitHub Desktop recommended.
+- GitHub Desktop installed and signed in.
 
 Both Apple Silicon and Intel are target environments and must be represented in preflight testing when available.
+
+Learners do not need Node.js, npm, or n8n installed on the host. The repository runs the pinned development and workflow tools inside Docker.
 
 ### Windows
 
@@ -44,7 +47,7 @@ Both Apple Silicon and Intel are target environments and must be represented in 
 - Docker Desktop configured to use WSL2.
 - Docker Desktop opened and reporting that its engine is running.
 - Current Chrome or Edge.
-- GitHub Desktop recommended.
+- GitHub Desktop installed and signed in.
 
 Windows learners should restart their computer after installing or enabling WSL2 and Docker Desktop.
 
@@ -73,18 +76,18 @@ Before the main workshop, every learner should:
 
 1. Open Docker Desktop.
 2. Confirm that Docker reports a running engine.
-3. Obtain a copy of the preflight repository or project archive.
+3. Create a private repository from the released template and clone it with GitHub Desktop.
 4. Start the supplied preflight Compose service.
 5. Open its documented localhost page.
 6. Stop the service.
 7. Sign in to GitHub Desktop.
 8. Confirm possession of a private Claude API key with available credit.
 
-Use `setup.command` on macOS or `setup-windows.cmd` on Windows for the full local preflight and first start.
+Use `setup.command` on macOS or `setup-windows.cmd` on Windows for the full local preflight, automatic workflow import, and first start.
 
 ## Instructor preparation
 
-The instructor should prepare:
+The instructor should use [INSTRUCTOR_CHECKLIST.md](INSTRUCTOR_CHECKLIST.md) and prepare:
 
 - At least one tested macOS machine.
 - At least one tested Windows 11 and WSL2 machine.
@@ -105,7 +108,7 @@ Record for each learner:
 | Docker engine running | Pass / needs help |
 | Ports 3000 and 5678 available | Pass / needs help |
 | GitHub access | Pass / needs help |
-| GitHub Desktop access | Pass / optional |
+| GitHub Desktop access | Pass / needs help |
 | Anthropic Console access | Pass / needs help |
 | Claude API key and credit | Pass / needs help |
 | Preflight local page opened | Pass / needs help |
