@@ -15,6 +15,7 @@ Merge the stacked pull requests from the bottom upward:
 5. Local task tools.
 6. Skills and safe confirmation.
 7. Beginner packaging.
+8. Learner-pilot validation.
 
 Then check out and pull `main`.
 
@@ -32,11 +33,16 @@ docker run --rm \
   node scripts/validate-template-readiness.mjs
 
 ./scripts/test-phase6.sh
+./scripts/test-phase7.sh
+./scripts/evaluate-pilot.sh
 ```
 
 The readiness check verifies the expected learner entry points, documentation, screenshots, workflow set, executable macOS helpers, Markdown links, ignored secret locations, and absence of Git LFS pointers.
 
-Run the instructor's fresh-copy check in [INSTRUCTOR_CHECKLIST.md](INSTRUCTOR_CHECKLIST.md) before enabling the template setting.
+The pilot evaluator must return `GO`; its default `NO_GO` is a release blocker,
+not a command to bypass. Run the instructor's fresh-copy check in
+[INSTRUCTOR_CHECKLIST.md](INSTRUCTOR_CHECKLIST.md) before enabling the template
+setting.
 
 ## Enable the repository setting
 

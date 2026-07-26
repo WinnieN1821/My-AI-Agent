@@ -1,0 +1,12 @@
+FROM mcr.microsoft.com/playwright:v1.61.0-noble
+
+WORKDIR /tests
+
+COPY tests/phase7/package.json tests/phase7/package-lock.json ./
+RUN npm ci --ignore-scripts
+
+COPY tests/phase7/browser-widths.mjs ./
+
+USER pwuser
+
+CMD ["node", "browser-widths.mjs"]

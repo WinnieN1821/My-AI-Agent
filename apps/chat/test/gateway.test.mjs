@@ -270,6 +270,80 @@ test("raw upstream failures and secrets are hidden", async (t) => {
   assert.doesNotMatch(rawBody, /ANTHROPIC|sk-ant|stack trace/);
 });
 
+test("an invalid Claude credential is reported without leaking provider details", async (t) => {
+  const upstreamUrl = await startUpstream(t, (_request, response) => {
+    response.writeHead(401, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "authentication_error",
+          message: "invalid x-api-key sk-ant-api03-do-not-leak",
+        },
+      }),
+    );
+  });
+  const gatewayUrl = await startGateway(t, { upstreamUrl });
+
+  const response = await chat(gatewayUrl, {
+    sessionId: SESSION_ID,
+    message: "Hello",
+  });
+  const rawBody = await response.text();
+
+  assert.equal(response.status, 502);
+  assert.equal(JSON.parse(rawBody).error.code, "AGENT_ERROR");
+  assert.doesNotMatch(rawBody, /authentication_error|x-api-key|sk-ant/);
+  assert.match(rawBody, /n8n workflow/i);
+});
+
+test("exhausted Claude credit is reported without leaking billing details", async (t) => {
+  const upstreamUrl = await startUpstream(t, (_request, response) => {
+    response.writeHead(402, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "billing_error",
+          message: "credit balance is too low for workspace secret-id",
+        },
+      }),
+    );
+  });
+  const gatewayUrl = await startGateway(t, { upstreamUrl });
+
+  const response = await chat(gatewayUrl, {
+    sessionId: SESSION_ID,
+    message: "Hello",
+  });
+  const rawBody = await response.text();
+
+  assert.equal(response.status, 502);
+  assert.equal(JSON.parse(rawBody).error.code, "AGENT_ERROR");
+  assert.doesNotMatch(rawBody, /billing_error|credit balance|secret-id/);
+  assert.match(rawBody, /n8n workflow/i);
+});
+
+test("a provider network failure is reported without leaking its stack trace", async (t) => {
+  const upstreamUrl = await startUpstream(t, (_request, response) => {
+    response.writeHead(500, { "Content-Type": "text/plain" });
+    response.end(
+      "ConnectTimeoutError: api.anthropic.com ENETUNREACH at internal secret-host",
+    );
+  });
+  const gatewayUrl = await startGateway(t, { upstreamUrl });
+
+  const response = await chat(gatewayUrl, {
+    sessionId: SESSION_ID,
+    message: "Hello",
+  });
+  const rawBody = await response.text();
+
+  assert.equal(response.status, 502);
+  assert.equal(JSON.parse(rawBody).error.code, "AGENT_ERROR");
+  assert.doesNotMatch(rawBody, /anthropic|ENETUNREACH|secret-host/i);
+});
+
 test("rate limiting uses the stable error contract", async (t) => {
   const upstreamUrl = await startUpstream(t, (_request, response) => {
     response.writeHead(429, { "Content-Type": "application/json" });
