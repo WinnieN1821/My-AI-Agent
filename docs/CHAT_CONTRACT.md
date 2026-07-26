@@ -63,7 +63,7 @@ POST http://n8n:5678/webhook/chat
 Content-Type: application/json
 ```
 
-The n8n workflow receives the same `sessionId` and `message` fields and returns the same successful response shape.
+The n8n workflow independently validates the same fields, sends only valid input to the agent, and returns the same successful response shape.
 
 The browser must never call the n8n webhook directly.
 
@@ -129,16 +129,20 @@ Browser-facing messages should tell the learner what to check. They must not con
 
 The local gateway timeout is 60 seconds.
 
-Technical contributors may change `CHAT_REQUEST_TIMEOUT_MS` in `compose.yaml`, but the learner-facing default and tests remain 60 seconds unless this contract is versioned.
+The n8n workflow has a 50-second execution timeout so it normally fails before the gateway reaches its own ceiling. The Claude node requests at most 900 output tokens, the AI Agent may take at most four iterations, and the final `reply` is capped at 8,000 characters.
+
+Technical contributors may change `CHAT_REQUEST_TIMEOUT_MS` in `compose.yaml`, but the learner-facing gateway default and tests remain 60 seconds unless this contract is versioned.
 
 ## Session behaviour
 
 - The browser creates a UUID session identifier.
 - The identifier is stored in browser local storage.
 - Every message in the active conversation reuses that identifier.
-- Reset conversation creates a new identifier.
+- New conversation creates a new identifier.
 - The identifier is not an authenticated user identity.
 - Conversation history must not be shared across session identifiers.
+- The supplied Simple Memory node retains six interactions for each session while n8n is running.
+- Restarting or stopping n8n clears this process-local memory.
 
 ## Browser rendering
 
@@ -173,7 +177,7 @@ Changes require a versioned contract when they:
 
 ## Contract acceptance tests
 
-Phase 2 must add tests proving:
+The Phase 2 contract suite proves:
 
 - A valid request is forwarded and returned.
 - Whitespace is trimmed.
@@ -184,3 +188,12 @@ Phase 2 must add tests proving:
 - A malformed n8n response returns `AGENT_ERROR`.
 - Raw upstream errors and secrets are not returned.
 - The response session identifier must match the request.
+
+The Phase 3 agent smoke test additionally proves:
+
+- Both exported workflows import and publish in the pinned n8n image.
+- A malformed direct webhook request returns a safe error without calling the model.
+- A valid browser request travels through the gateway and workflow.
+- A session recalls its own conversation while a different session remains isolated.
+- Agent output is capped.
+- Restarting n8n clears the documented Simple Memory state.

@@ -41,14 +41,62 @@ The chat service starts only after n8n reports healthy.
 
 The page and chat gateway are working, but n8n does not yet have an active `/webhook/chat` workflow.
 
-This is expected at the end of Phase 2. Phase 3 imports and activates the Claude agent workflow. If that workflow has already been installed:
-
-1. Open n8n and confirm the chat workflow is active.
-2. Confirm its production webhook path is exactly `chat`.
-3. Check the workflow's most recent execution for a failed node.
-4. Restart the local stack and try again.
+1. Run the workflow import command for the computer.
+2. Open n8n and confirm `00 - START HERE - Project Partner` is published.
+3. Confirm its production webhook path is exactly `chat`.
+4. Check the workflow's most recent execution for a failed node.
+5. Restart the local stack and try again.
 
 The browser intentionally does not show raw workflow errors or credentials.
+
+## A workflow does not appear after import
+
+1. Confirm the terminal reported `Workflows imported successfully`.
+2. Refresh the n8n Projects page.
+3. Check that the local n8n owner account has been created.
+4. Run the import command again; the fixed workflow IDs prevent duplicate copies.
+5. Ask a technical helper to run `docker compose logs --tail 100 n8n`.
+
+Imports remain inactive until a learner deliberately selects the credential and publishes the workflow.
+
+## Claude credential is missing or invalid
+
+Open `00 - START HERE - Project Partner`, then open **Claude - Sonnet 4.6**.
+
+1. Select a credential named `Anthropic account`, or create it if it does not exist.
+2. Paste only an Anthropic Console API key into the **API Key** field.
+3. Leave **Base URL** at its default for real Claude use.
+4. Save the credential, save the workflow, and publish it again.
+
+An Anthropic web-chat subscription is separate from API access. Follow [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md) for the supported credential steps.
+
+## Claude reports a credit or rate-limit error
+
+Anthropic API use requires API billing and available usage credit. Open the Anthropic Console to check the workspace's usage, limits, and billing. Add only a small workshop budget and keep the supplied response and iteration limits.
+
+If billing is available, wait briefly and retry. Persistent 429 responses can also mean a workspace rate limit has been reached.
+
+## The agent health endpoint does not work
+
+Open [http://localhost:5678/webhook/agent-health](http://localhost:5678/webhook/agent-health).
+
+- A small JSON response with `"status":"ok"` proves the debug workflow is published.
+- An n8n 404 usually means `90 - DEBUG - Agent Health` has not been published.
+- A failed n8n health check means the service itself needs attention.
+
+This endpoint intentionally does not test Claude. Use an ordinary chat message for an end-to-end test.
+
+## The agent forgot an earlier message
+
+This is expected after n8n restarts or stops. The first release uses Simple Memory, which is process-local and keeps the latest six interactions for each browser session.
+
+If n8n did not restart:
+
+1. Confirm the browser was not reset or its site data cleared.
+2. Confirm the same browser tab still has the same conversation.
+3. Check that **Conversation Memory** remains connected to the agent in the workflow.
+
+Durable conversation history is deferred from the local beginner release.
 
 ## Chat customisation did not appear
 

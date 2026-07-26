@@ -7,6 +7,9 @@
 backups/*
 !backups/.gitkeep
 
+# Local workflow exports may contain instance-specific credential references
+n8n/exports/
+
 # Operating-system and editor files
 .DS_Store
 Thumbs.db
