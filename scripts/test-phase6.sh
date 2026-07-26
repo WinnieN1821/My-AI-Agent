@@ -196,7 +196,13 @@ expect_contains "${skill_config}" 'project-assistant' "automatic enabled skills"
 printf 'Proving the manual import fallback is repeatable...\n'
 "${COPY_ROOT}/scripts/import-workflows.sh" >/dev/null
 task_list_after_import="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/phase4-test-list" \
     -H 'Content-Type: application/json' \
     --data "{\"sessionId\":\"${SESSION_ID}\",\"status\":\"all\",\"priority\":\"all\"}"
