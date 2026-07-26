@@ -52,6 +52,7 @@ cp "${BACKUP_DIR}/env.backup" "${ENV_FILE}"
 chmod 600 "${ENV_FILE}"
 
 compose run --rm --no-deps \
+  --user 0:0 \
   -v "${BACKUP_DIR}:/backup:ro" \
   --entrypoint /bin/sh \
   n8n \
