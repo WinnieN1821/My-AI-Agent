@@ -69,7 +69,10 @@ else {
 & (Join-Path $PSScriptRoot "preflight.ps1")
 
 Write-Host "`nDownloading the pinned local images..."
-Invoke-Compose @("pull")
+Invoke-Compose @("pull", "n8n")
+
+Write-Host "`nBuilding the local chat app..."
+Invoke-Compose @("build", "chat")
 
 Write-Host "`nStarting AI Solopreneur..."
 Invoke-Compose @("up", "-d", "--wait", "--wait-timeout", "240")
@@ -81,5 +84,5 @@ Wait-Endpoint "http://127.0.0.1:$chatPort/health"
 Wait-Endpoint "http://127.0.0.1:$n8nPort/healthz"
 
 Write-Host "`nLocal stack is healthy." -ForegroundColor Green
-Write-Host "  Chat foundation: http://localhost:$chatPort"
+Write-Host "  Chat app:          http://localhost:$chatPort"
 Write-Host "  n8n editor:       http://localhost:$n8nPort"

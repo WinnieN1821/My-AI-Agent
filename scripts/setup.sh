@@ -79,7 +79,10 @@ fi
 "${PROJECT_ROOT}/scripts/preflight.sh"
 
 printf '\nDownloading the pinned local images...\n'
-compose pull
+compose pull n8n
+
+printf '\nBuilding the local chat app...\n'
+compose build chat
 
 printf '\nStarting AI Solopreneur...\n'
 compose up -d --wait --wait-timeout 240
@@ -91,5 +94,5 @@ curl --fail --silent --show-error "http://127.0.0.1:${CHAT_PORT}/health" >/dev/n
 curl --fail --silent --show-error "http://127.0.0.1:${N8N_PORT}/healthz" >/dev/null
 
 printf '\nLocal stack is healthy.\n'
-printf '  Chat foundation: http://localhost:%s\n' "${CHAT_PORT}"
+printf '  Chat app:          http://localhost:%s\n' "${CHAT_PORT}"
 printf '  n8n editor:       http://localhost:%s\n' "${N8N_PORT}"

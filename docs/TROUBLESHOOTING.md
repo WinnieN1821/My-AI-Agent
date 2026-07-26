@@ -28,7 +28,7 @@ N8N_PORT=5678
 
 After changing a port, use the new localhost address in the browser.
 
-## The chat foundation does not open
+## The chat app does not open
 
 1. Open [http://localhost:3000/health](http://localhost:3000/health).
 2. Run the start script again.
@@ -36,6 +36,28 @@ After changing a port, use the new localhost address in the browser.
 4. Run `docker compose ps` if comfortable using a terminal.
 
 The chat service starts only after n8n reports healthy.
+
+## The chat says the local agent is not ready
+
+The page and chat gateway are working, but n8n does not yet have an active `/webhook/chat` workflow.
+
+This is expected at the end of Phase 2. Phase 3 imports and activates the Claude agent workflow. If that workflow has already been installed:
+
+1. Open n8n and confirm the chat workflow is active.
+2. Confirm its production webhook path is exactly `chat`.
+3. Check the workflow's most recent execution for a failed node.
+4. Restart the local stack and try again.
+
+The browser intentionally does not show raw workflow errors or credentials.
+
+## Chat customisation did not appear
+
+1. Save `apps/chat/public/agent.config.js`.
+2. Refresh the chat page.
+3. Confirm the edited words remain inside quotes and prompts remain comma-separated.
+4. Open the browser developer console only if a technical helper is available; a syntax error in the config file causes the safe default settings to load.
+
+Normal changes to the agent name, subtitle, welcome message, colour, and example prompts do not require rebuilding Docker.
 
 ## n8n does not open
 

@@ -6,6 +6,8 @@ This contract separates the learner-owned browser interface from the n8n agent. 
 
 The local release uses synchronous request and response processing. Provider webhooks and asynchronous jobs are deferred.
 
+Phase 2 implements the browser-facing side of this contract in the TypeScript chat gateway. Phase 3 supplies the n8n workflow behind the private webhook.
+
 ## Endpoints
 
 ### Browser-facing health check
@@ -127,7 +129,7 @@ Browser-facing messages should tell the learner what to check. They must not con
 
 The local gateway timeout is 60 seconds.
 
-The implementation may make this configurable for technical contributors, but the learner-facing default and tests must remain 60 seconds unless this contract is versioned.
+Technical contributors may change `CHAT_REQUEST_TIMEOUT_MS` in `compose.yaml`, but the learner-facing default and tests remain 60 seconds unless this contract is versioned.
 
 ## Session behaviour
 
