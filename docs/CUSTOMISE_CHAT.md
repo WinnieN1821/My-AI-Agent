@@ -95,3 +95,5 @@ docker compose up -d --wait chat
 ```
 
 Edits to files in `apps/chat/public/` are visible after a browser refresh in the local Compose environment.
+
+Learners can compare the supplied [finished Launch Partner example](../examples/finished-solo-project-assistant/README.md), then use [GitHub Desktop](GITHUB_DESKTOP.md) to commit and push their chosen customisation.

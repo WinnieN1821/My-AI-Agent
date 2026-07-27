@@ -7,7 +7,7 @@ At the end of setup, two local services will be healthy:
 - The chat app at [http://localhost:3000](http://localhost:3000).
 - The n8n editor at [http://localhost:5678](http://localhost:5678).
 
-Both services run in Docker. Nothing is published to the internet.
+The eleven reviewed workflows, three sample tasks, and enabled Markdown skills will also be installed automatically. Both services run in Docker. Nothing is published to the internet.
 
 ## Before starting
 
@@ -53,7 +53,8 @@ On the first visit to n8n:
 1. Create the local n8n owner account.
 2. Use a password that is not shared with another team.
 3. Store the password privately.
-4. Import the supplied workflows before adding the Claude credential.
+4. Open `01 - START HERE - Learner Checklist`.
+5. Follow its visual steps before adding the Claude credential.
 
 The n8n owner account exists only in this local Docker volume.
 
@@ -77,7 +78,12 @@ The script then:
 5. Starts n8n.
 6. Waits for n8n to become healthy.
 7. Starts the chat app.
-8. Confirms both local health endpoints.
+8. Imports the eleven reviewed workflows when they are not already installed.
+9. Creates the local tables and three missing sample tasks.
+10. Loads only the skills listed in `skills/enabled.txt`.
+11. Confirms both local health endpoints.
+
+On a later setup run, the learner-checklist workflow acts as the installation marker. Setup keeps existing workflow edits unchanged. Use the explicit workflow-import helper only when you deliberately want to refresh the reviewed workflows.
 
 ## Local-only networking
 
@@ -121,8 +127,13 @@ Setup is successful only when:
 - `http://localhost:3000/health` returns `{"status":"ok"}`.
 - `http://localhost:5678/healthz` returns a successful response.
 - Restarting the stack preserves the local n8n owner and saved settings.
+- `01 - START HERE - Learner Checklist` appears in n8n.
+
+If automatic workflow import was interrupted, double-click `import-workflows.command` on macOS or `import-workflows-windows.cmd` on Windows. The fallback is safe to repeat.
 
 If any check fails, use [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+After adding the Anthropic credential and publishing workflows `00` and `90`, run `diagnose.command` on macOS or `diagnose-windows.cmd` on Windows. Continue to a real Claude message only when every diagnostic is green.
 
 ## Make the chat your own
 
@@ -130,4 +141,4 @@ After setup, follow [CUSTOMISE_CHAT.md](CUSTOMISE_CHAT.md) to change the agent n
 
 ## Connect the agent
 
-When setup and customisation are complete, follow [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md). It walks through importing the visual workflow, storing the Anthropic API key safely in n8n, publishing the workflow, and sending a first message.
+When setup and customisation are complete, follow [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md). It walks through confirming automatic import, storing the Anthropic API key safely in n8n, publishing the workflow, and sending a first message.

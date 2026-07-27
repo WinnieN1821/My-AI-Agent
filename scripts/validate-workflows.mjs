@@ -7,6 +7,7 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const workflowDirectory = join(projectRoot, "n8n", "workflows");
 const expectedFiles = [
   "00-start-here-project-partner.json",
+  "01-start-here-learner-checklist.json",
   "10-setup-local-task-data.json",
   "11-setup-sync-enabled-skills.json",
   "20-tool-list-tasks.json",
@@ -85,7 +86,63 @@ for (const file of expectedFiles) {
   }
 }
 
-const agentWorkflow = workflows.get(expectedFiles[0]);
+const checklistWorkflow = workflows.get("01-start-here-learner-checklist.json");
+if (checklistWorkflow) {
+  check(
+    checklistWorkflow.name === "01 - START HERE - Learner Checklist",
+    "Learner checklist must retain its numbered START HERE name",
+  );
+  check(
+    checklistWorkflow.nodes.filter(
+      (node) => node.type !== "n8n-nodes-base.stickyNote",
+    ).length === 2,
+    "Learner checklist must contain only one manual trigger and one result node",
+  );
+  check(
+    checklistWorkflow.nodes.every((node) =>
+      [
+        "n8n-nodes-base.stickyNote",
+        "n8n-nodes-base.manualTrigger",
+        "n8n-nodes-base.code",
+      ].includes(node.type),
+    ),
+    "Learner checklist may not contain credentialed, network, AI, or data nodes",
+  );
+  check(
+    checklistWorkflow.nodes.every(
+      (node) => Object.keys(node.credentials ?? {}).length === 0,
+    ),
+    "Learner checklist must not contain credential references",
+  );
+  const checklistText = checklistWorkflow.nodes
+    .map(
+      (node) =>
+        `${node.parameters?.content ?? ""}\n${node.parameters?.jsCode ?? ""}`,
+    )
+    .join("\n");
+  for (const requiredText of [
+    "Anthropic account",
+    "00 - START HERE - Project Partner",
+    "90 - DEBUG - Agent Health",
+    "CONFIRM XXXXXXXX",
+    "apps/chat/public/agent.config.js",
+    "skills/project-assistant/SKILL.md",
+    "diagnostics helper",
+  ]) {
+    check(
+      checklistText.includes(requiredText),
+      `Learner checklist must mention "${requiredText}"`,
+    );
+  }
+  check(
+    connectionTargets(checklistWorkflow, "Run Checklist", "main", 0).includes(
+      "Show Next Actions",
+    ),
+    "Learner checklist manual trigger must return the structured next actions",
+  );
+}
+
+const agentWorkflow = workflows.get("00-start-here-project-partner.json");
 if (agentWorkflow) {
   check(
     agentWorkflow.name === "00 - START HERE - Project Partner",

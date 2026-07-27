@@ -120,3 +120,5 @@ docker run --rm \
   node:24.16.0-alpine3.22 \
   node tests/phase5/test-skills.mjs
 ```
+
+The [finished Launch Partner example](../examples/finished-solo-project-assistant/README.md) includes an alternative project-assistant skill for comparison. After testing a learner change in a new conversation, use [GitHub Desktop](GITHUB_DESKTOP.md) to commit and push the Markdown file.

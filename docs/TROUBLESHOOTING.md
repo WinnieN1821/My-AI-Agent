@@ -1,5 +1,25 @@
 # Local Troubleshooting
 
+## Start with this table
+
+Run `diagnose.command` on macOS or `diagnose-windows.cmd` on Windows first. It does not call Claude or display credential values.
+
+| What you see | Most likely cause | First action |
+| --- | --- | --- |
+| `docker: command not found` | Docker Desktop is missing or not on PATH | Install Docker Desktop, restart if requested, then rerun setup |
+| Docker is installed but diagnostics show `[!!]` | Docker's engine is not ready | Open Docker Desktop and wait until it reports Ready |
+| Port 3000 or 5678 is in use | Another local app owns the port | Close that app or change the matching `.env` value |
+| Chat opens but says the agent is not ready | Workflow `00` is not published | Follow the yellow diagnostic action and publish workflow `00` |
+| Diagnostic says the Anthropic credential is missing | The Claude node still references a nonexistent placeholder | Create `Anthropic account`, select it in the Claude node, save, and publish |
+| n8n Overview has no learner checklist | Automatic import was interrupted | Run the platform's `import-workflows` fallback |
+| Claude returns an authentication error | API key is invalid or revoked | Replace only the n8n credential; never put the key in a file |
+| Claude returns a credit/rate error | API billing or workspace limit | Check the Anthropic Console balance and limits |
+| Plain `yes` does not create a task | Expected safety behaviour | Send the exact, current `CONFIRM XXXXXXXX` phrase |
+| A skill edit has no effect | Bundle was not synced or conversation memory is old | Run the skill-sync helper and start a new conversation |
+| Data vanished after reset | Reset removed the Docker volume | Restore the latest complete private backup |
+| `.command` is blocked on macOS | Gatekeeper has not approved that local script | Control-click it, choose **Open**, then confirm |
+| A `.cmd` window closes or reports an execution error | Docker/PowerShell prerequisite or script failure | Rerun it and read the first red or `[!!]` line |
+
 ## Docker command not found
 
 Docker Desktop is not installed, has not finished installing, or its command is not on the system path.
@@ -52,12 +72,12 @@ The browser intentionally does not show raw workflow errors or credentials.
 ## A workflow does not appear after import
 
 1. Confirm the terminal reported `Workflows imported successfully`.
-2. Refresh the n8n Projects page.
+2. Refresh the n8n Overview.
 3. Check that the local n8n owner account has been created.
-4. Run the import command again; the fixed workflow IDs prevent duplicate copies.
+4. Run the import fallback again; the fixed workflow IDs prevent duplicate copies.
 5. Ask a technical helper to run `docker compose logs --tail 100 n8n`.
 
-The main agent, health workflow, and temporary setup workflows remain inactive until deliberately published. The import helper publishes the six reviewed runtime dependencies automatically.
+First setup normally imports all eleven workflows automatically. The main agent, health workflow, learner checklist, and temporary setup workflows remain inactive until viewed, run manually, or deliberately published. The import helper publishes the six reviewed runtime dependencies automatically.
 
 ## Claude credential is missing or invalid
 
@@ -212,9 +232,10 @@ Control-click the `.command` file, choose **Open**, then confirm. This allows th
 
 ## Get diagnostic status
 
-Technical contributors can run:
+Learners should first double-click `diagnose.command` or `diagnose-windows.cmd`. Technical contributors can run:
 
 ```bash
+./scripts/diagnose.sh
 ./scripts/preflight.sh
 docker compose ps
 docker compose logs --tail 100 n8n
