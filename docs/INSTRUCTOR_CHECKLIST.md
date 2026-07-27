@@ -6,6 +6,8 @@ Use this list to prepare and run a workshop in which non-technical teams reach a
 
 ## One week before
 
+- [ ] Complete the [non-technical learner pilot](PILOT_RUNBOOK.md) and receive a `GO` from the evaluator.
+- [ ] Confirm every item in the [workshop go/no-go checklist](GO_NO_GO.md) has evidence.
 - [ ] Merge the release phase branches in order and complete [TEMPLATE_RELEASE.md](TEMPLATE_RELEASE.md).
 - [ ] Generate a disposable repository from the template with **Include all branches** off.
 - [ ] Follow only that generated repository's README on one supported Mac and one Windows 11/WSL2 computer.
@@ -88,11 +90,12 @@ Every team should demonstrate:
 
 ## Intervention log
 
-Record:
+Record anonymous sessions in `pilot/results.json` using the fields and privacy
+rules in the [pilot runbook](PILOT_RUNBOOK.md). A compact working view is:
 
-| Team | OS | Time to first response | Intervention | Root cause | Follow-up |
+| Anonymous team | OS | Time to first response | Intervention | Root cause | Follow-up |
 | --- | --- | --- | --- | --- | --- |
-| Example | Windows 11 | 34 min | Docker restart | WSL2 update pending | Add to preflight |
+| T01 | Windows 11/WSL2 | 34 min | Docker restart | WSL2 update pending | Add to preflight |
 
 Do not record API keys, passwords, full logs, or sensitive task content.
 

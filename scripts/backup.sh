@@ -8,6 +8,8 @@ BACKUP_ROOT="${PROJECT_ROOT}/backups"
 TIMESTAMP="$(date '+%Y%m%d-%H%M%S')"
 BACKUP_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
 WAS_RUNNING=false
+BACKUP_OWNER_UID="$(id -u)"
+BACKUP_OWNER_GID="$(id -g)"
 
 compose() {
   docker compose \
@@ -44,10 +46,15 @@ fi
 trap restart_if_needed EXIT
 
 compose run --rm --no-deps \
+  --user 0:0 \
+  -e "BACKUP_OWNER_UID=${BACKUP_OWNER_UID}" \
+  -e "BACKUP_OWNER_GID=${BACKUP_OWNER_GID}" \
   -v "${BACKUP_DIR}:/backup" \
   --entrypoint /bin/sh \
   n8n \
-  -c 'tar -czf /backup/n8n-data.tar.gz -C /home/node/.n8n .'
+  -c 'tar -czf /backup/n8n-data.tar.gz -C /home/node/.n8n . &&
+    chown "${BACKUP_OWNER_UID}:${BACKUP_OWNER_GID}" /backup/n8n-data.tar.gz &&
+    chmod 600 /backup/n8n-data.tar.gz'
 
 cp "${ENV_FILE}" "${BACKUP_DIR}/env.backup"
 chmod 600 "${BACKUP_DIR}/env.backup"

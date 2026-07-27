@@ -90,7 +90,13 @@ compose restart n8n >/dev/null
 compose up -d --wait --wait-timeout 240 n8n >/dev/null
 
 setup_response="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/setup-task-data"
 )"
 if [[ "${setup_response}" != *'"ok":true'* ]]; then
@@ -107,7 +113,13 @@ skill_bundle="$(
     node scripts/compile-skills.mjs
 )"
 skill_response="$(
-  curl --fail --silent --show-error \
+  curl \
+    --retry 30 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --fail \
+    --silent \
+    --show-error \
     -X POST "http://127.0.0.1:${N8N_PORT}/webhook/sync-enabled-skills" \
     -H 'Content-Type: application/json' \
     --data-binary "${skill_bundle}"

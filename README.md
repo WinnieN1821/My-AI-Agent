@@ -175,6 +175,10 @@ Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegra
 ### Instructors
 
 - [Instructor checklist](docs/INSTRUCTOR_CHECKLIST.md)
+- [Non-technical learner pilot](docs/PILOT_RUNBOOK.md)
+- [Pilot findings](docs/PILOT_FINDINGS.md)
+- [Workshop go/no-go checklist](docs/GO_NO_GO.md)
+- [Prioritised usability fixes](docs/USABILITY_FIXES.md)
 - [Template release checklist](docs/TEMPLATE_RELEASE.md)
 - [Local operations and recovery](docs/LOCAL_OPERATIONS.md)
 - [Finished example](examples/finished-solo-project-assistant/README.md)
@@ -199,8 +203,16 @@ docker run --rm \
   node scripts/validate-workflows.mjs
 
 ./scripts/test-phase6.sh
+./scripts/test-phase7.sh
+
+# This remains NO_GO until real anonymous pilot evidence is complete.
+./scripts/evaluate-pilot.sh
 ```
 
 ## Current milestone
 
-Phases 0–6 of the local-first implementation plan are represented in this branch. The repository is template-ready once the stacked phase PRs are merged into `main` and the maintainer enables GitHub's **Template repository** setting.
+Phases 0–6 of the local-first implementation plan are implemented. Phase 7
+engineering validation, CI, and the learner-pilot protocol are present, but the
+real non-technical pilot has not run. The current workshop decision is
+**NO-GO**; Phase 8 must wait for the evidence in `pilot/results.json` to pass the
+go/no-go evaluator.
