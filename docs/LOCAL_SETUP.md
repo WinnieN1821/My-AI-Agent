@@ -53,7 +53,7 @@ On the first visit to n8n:
 1. Create the local n8n owner account.
 2. Use a password that is not shared with another team.
 3. Store the password privately.
-4. Do not add a Claude credential until the agent-workflow phase.
+4. Import the supplied workflows before adding the Claude credential.
 
 The n8n owner account exists only in this local Docker volume.
 
@@ -127,3 +127,7 @@ If any check fails, use [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 ## Make the chat your own
 
 After setup, follow [CUSTOMISE_CHAT.md](CUSTOMISE_CHAT.md) to change the agent name, welcome message, colour, and example prompts. Those beginner-facing settings update after a browser refresh and do not require an image rebuild.
+
+## Connect the agent
+
+When setup and customisation are complete, follow [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md). It walks through importing the visual workflow, storing the Anthropic API key safely in n8n, publishing the workflow, and sending a first message.

@@ -30,6 +30,7 @@ Open:
 
 - [http://localhost:3000/health](http://localhost:3000/health)
 - [http://localhost:5678/healthz](http://localhost:5678/healthz)
+- [http://localhost:5678/webhook/agent-health](http://localhost:5678/webhook/agent-health) after the debug workflow is published
 
 Technical contributors can also run:
 
@@ -38,6 +39,60 @@ docker compose ps
 ```
 
 Both services should report `healthy`.
+
+The first endpoint checks the chat service, the second checks n8n itself, and the third checks that n8n can run a published workflow. The workflow health response deliberately does not call Claude or expose credentials.
+
+## Import the supplied workflows
+
+Workflow import is safe to repeat. It imports the canonical repository files as inactive drafts so a learner can inspect them before publishing.
+
+### macOS
+
+Double-click `import-workflows.command`, or run:
+
+```bash
+./scripts/import-workflows.sh
+```
+
+### Windows
+
+Double-click `import-workflows-windows.cmd`, or run:
+
+```powershell
+.\scripts\windows\import-workflows.ps1
+```
+
+After import, select the learner's `Anthropic account` credential in the Claude node and publish both workflows. See [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md).
+
+## Export workflow copies
+
+Export after making a deliberate visual workflow change:
+
+### macOS
+
+```bash
+./scripts/export-workflows.sh
+```
+
+### Windows
+
+```powershell
+.\scripts\windows\export-workflows.ps1
+```
+
+The scripts write timestamped copies below `n8n/exports/`. That directory is ignored by Git. Exports may contain credential references even though they do not contain the decrypted API key, so review them carefully before copying changes into `n8n/workflows/`.
+
+## Conversation memory
+
+The first workflow uses n8n Simple Memory:
+
+- The browser's `sessionId` separates one conversation from another.
+- The latest six interactions are supplied to the agent.
+- Selecting **New conversation** in the browser creates a fresh session.
+- Memory is held inside the running n8n process, not in the persistent Docker volume.
+- Restarting or stopping n8n clears conversation memory.
+
+Workflows, the n8n owner account, and encrypted credentials do persist across a normal restart. Durable conversation history is deliberately deferred from the local beginner release.
 
 ## Create a backup
 
@@ -146,5 +201,6 @@ Do not replace pinned tags with `latest`.
 - `.env.example` contains a placeholder, not a working key.
 - The chat container has no n8n encryption key or Claude API key.
 - The n8n encryption key is required only by the n8n service.
+- Workflow exports can contain credential names and IDs, but never commit a manually created credential export or an API key.
 
 If `.env` or a backup is exposed, replace the local credentials before using that instance again.
