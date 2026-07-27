@@ -6,8 +6,8 @@ Use this list to prepare and run a workshop in which non-technical teams reach a
 
 ## One week before
 
-- [ ] Complete the [non-technical learner pilot](PILOT_RUNBOOK.md) and receive a `GO` from the evaluator.
-- [ ] Confirm every item in the [workshop go/no-go checklist](GO_NO_GO.md) has evidence.
+- [x] Confirm the repository owner's documented pilot waiver in the [workshop decision](GO_NO_GO.md). Do not present it as completed pilot evidence.
+- [ ] If your organisation requires its own learner pilot, complete the [pilot runbook](PILOT_RUNBOOK.md) and receive `GO` before delivery.
 - [ ] Merge the release phase branches in order and complete [TEMPLATE_RELEASE.md](TEMPLATE_RELEASE.md).
 - [ ] Generate a disposable repository from the template with **Include all branches** off.
 - [ ] Follow only that generated repository's README on one supported Mac and one Windows 11/WSL2 computer.
@@ -21,6 +21,7 @@ Use this list to prepare and run a workshop in which non-technical teams reach a
 - [ ] Confirm reset requires the exact `RESET` word.
 - [ ] Test the current screenshots and every learner-facing link.
 - [ ] Record any managed-network, VPN, proxy, or Docker policy constraints.
+- [ ] Generate and test the versioned instructor kit using [RELEASE.md](RELEASE.md).
 
 ## Learner preflight
 
@@ -49,6 +50,7 @@ Resolve Docker and account installation before the main session.
 - [ ] Projector-safe demo credential that can be revoked immediately.
 - [ ] The [troubleshooting table](TROUBLESHOOTING.md) open in a separate tab.
 - [ ] A timer and a simple intervention log.
+- [ ] The [eight-exercise course guide](COURSE_GUIDE.md) and released learner guide available offline.
 
 ## Suggested 90-minute run
 

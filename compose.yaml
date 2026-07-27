@@ -2,7 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-ai-solopreneur}
 
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:2.30.5
+    image: docker.n8n.io/n8nio/n8n:2.30.5@sha256:450853cd21a2ce36587c4c860eb26927c1ceba9496bf55f4c213b5d3a6dc8c6f
     restart: unless-stopped
     environment:
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Australia/Melbourne}
@@ -46,7 +46,7 @@ services:
     stop_grace_period: 30s
 
   chat:
-    image: ai-solopreneur-chat:phase-2
+    image: ai-solopreneur-chat:0.1.0
     build:
       context: ./apps/chat
     restart: unless-stopped

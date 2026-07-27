@@ -2,6 +2,13 @@
 
 Build and personalise a useful Claude-powered project assistant on your own computer—without installing Node.js, npm, or n8n.
 
+**Local release:** `v0.1.0`
+
+If this is your first technical project, use the
+**[complete beginner getting-started guide](docs/GETTING_STARTED.md)**. It
+explains every name, click, success check, stop/start action, and recovery path
+in plain language.
+
 In about 30 minutes you will have:
 
 - Your own browser chat.
@@ -164,6 +171,7 @@ Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegra
 
 ### Learners
 
+- [Complete beginner getting-started guide](docs/GETTING_STARTED.md)
 - [Workshop prerequisites](docs/WORKSHOP_PREREQUISITES.md)
 - [Detailed local setup](docs/LOCAL_SETUP.md)
 - [GitHub Desktop workflow](docs/GITHUB_DESKTOP.md)
@@ -174,6 +182,9 @@ Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegra
 
 ### Instructors
 
+- [Eight-exercise course guide](docs/COURSE_GUIDE.md)
+- [Local release and instructor kit](docs/RELEASE.md)
+- [Feedback and live-course change control](docs/FEEDBACK_AND_CHANGE_CONTROL.md)
 - [Instructor checklist](docs/INSTRUCTOR_CHECKLIST.md)
 - [Non-technical learner pilot](docs/PILOT_RUNBOOK.md)
 - [Pilot findings](docs/PILOT_FINDINGS.md)
@@ -199,20 +210,23 @@ Technical checks use the pinned Docker images; learners do not need development 
 docker run --rm \
   -v "$PWD:/workspace:ro" \
   -w /workspace \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node scripts/validate-workflows.mjs
 
 ./scripts/test-phase6.sh
 ./scripts/test-phase7.sh
+./scripts/test-phase8.sh
 
-# This remains NO_GO until real anonymous pilot evidence is complete.
+# The evaluator remains NO_GO because the owner waived, rather than fabricated,
+# the planned human pilot.
 ./scripts/evaluate-pilot.sh
 ```
 
 ## Current milestone
 
-Phases 0–6 of the local-first implementation plan are implemented. Phase 7
-engineering validation, CI, and the learner-pilot protocol are present, but the
-real non-technical pilot has not run. The current workshop decision is
-**NO-GO**; Phase 8 must wait for the evidence in `pilot/results.json` to pass the
-go/no-go evaluator.
+Phases 0–8 of the local-first implementation plan are implemented for local
+release `v0.1.0`. The repository owner reviewed the experience and explicitly
+authorised Phase 8 without the planned five-person pilot. That waiver is
+recorded transparently: `pilot/results.json` remains `not_run` and the evaluator
+remains `NO_GO`. Cloud deployment, external chat channels, and production
+hardening remain deferred.

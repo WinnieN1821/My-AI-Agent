@@ -69,12 +69,12 @@ printf 'Validating the template package and canonical workflows...\n'
 docker run --rm \
   -v "${PROJECT_ROOT}:/workspace:ro" \
   -w /workspace \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node scripts/validate-template-readiness.mjs
 docker run --rm \
   -v "${PROJECT_ROOT}:/workspace:ro" \
   -w /workspace \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node scripts/validate-workflows.mjs
 
 printf 'Creating a fresh template-style project copy...\n'
@@ -243,7 +243,7 @@ latest_export_directory="$(
   fail "workflow export directory was not created"
 docker run --rm \
   -v "${latest_export_directory}:/exports:ro" \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node -e "
 const fs = require('fs');
 const files = fs.readdirSync('/exports').filter((file) => file.endsWith('.json'));

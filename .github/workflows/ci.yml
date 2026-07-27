@@ -40,6 +40,7 @@ jobs:
           node scripts/validate-workflows.mjs
           node tests/phase5/test-skills.mjs
           node scripts/validate-template-readiness.mjs
+          node scripts/validate-release.mjs
           node --test tests/phase7/test-pilot-evaluator.mjs
           node scripts/evaluate-pilot.mjs --allow-pending
 
@@ -102,3 +103,6 @@ jobs:
 
       - name: Run Phase 7 validation smoke
         run: ./scripts/test-phase7.sh
+
+      - name: Run Phase 8 release smoke
+        run: ./scripts/test-phase8.sh
