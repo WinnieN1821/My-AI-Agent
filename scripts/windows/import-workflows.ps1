@@ -10,7 +10,7 @@ Write-Host "Checking the workflow exports..."
 & docker run --rm `
     -v "${script:ProjectRoot}:/workspace:ro" `
     -w /workspace `
-    node:24.16.0-alpine3.22 `
+    node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a `
     node scripts/validate-workflows.mjs
 if ($LASTEXITCODE -ne 0) {
     throw "Workflow validation failed."
@@ -123,7 +123,7 @@ try {
     $skillBundle = (& docker run --rm `
         -v "${script:ProjectRoot}:/workspace:ro" `
         -w /workspace `
-        node:24.16.0-alpine3.22 `
+        node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a `
         node scripts/compile-skills.mjs | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) {
         throw "Enabled skill validation failed."

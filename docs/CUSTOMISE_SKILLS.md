@@ -117,7 +117,7 @@ Technical contributors can validate without changing n8n:
 docker run --rm \
   -v "$PWD:/workspace:ro" \
   -w /workspace \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node tests/phase5/test-skills.mjs
 ```
 

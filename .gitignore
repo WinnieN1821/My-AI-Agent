@@ -24,3 +24,6 @@ coverage/
 # Logs and temporary files
 *.log
 *.tmp
+
+# Generated release kits contain large, architecture-specific Docker archives
+instructor-pack/

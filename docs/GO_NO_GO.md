@@ -1,10 +1,16 @@
 # Workshop go/no-go checklist
 
-## Current decision: NO-GO
+## Current decision: OWNER-APPROVED GO (PILOT WAIVER)
 
-The human pilot has not run. Phase 8 release and course delivery must not begin.
-Automated checks can show that the repository behaves consistently, but cannot
+The human pilot has not run. On 2026-07-27, the repository owner reviewed the
+complete local experience, accepted its current state, and explicitly
+authorised Phase 8 without that pilot. This is an owner waiver, not a claim that
+the human acceptance criteria passed.
+
+Automated checks show that the repository behaves consistently, but cannot
 prove that non-technical learners can use the instructions independently.
+`pilot/results.json` therefore remains `not_run` and the evaluator correctly
+remains `NO_GO`.
 
 Run the authoritative decision by double-clicking `evaluate-pilot.command` on
 macOS or `evaluate-pilot-windows.cmd` on Windows. From a terminal:
@@ -52,16 +58,18 @@ supervised real-account and fully offline checks have not been recorded.
 
 | Field | Value |
 | --- | --- |
-| Date | Pending |
-| Evidence commit | Pending |
-| Evaluator decision | `NO_GO` |
+| Date | 2026-07-27 |
+| Evidence commit | `7309541` plus the Phase 8 release PR |
+| Evaluator decision | `NO_GO` — explicitly waived by owner |
 | Participants | 0 |
 | Response within 30 minutes | 0% |
-| Open P0 fixes | Unknown until pilot |
-| Open P1 fixes | Unknown until pilot |
-| Decision owner | Pending |
-| Phase 8 authorised | No |
+| Open P0 fixes | Not assessed by a human pilot |
+| Open P1 fixes | Not assessed by a human pilot |
+| Decision owner | Repository owner |
+| Phase 8 authorised | Yes — owner waiver |
 
-When all boxes are supported by evidence, commit the completed anonymous result,
-record the commit SHA above, and have the workshop owner sign off. Do not change
-the decision by editing this document alone.
+The unchecked human boxes remain visible so future course results are not
+confused with completed pilot evidence. If a pilot is run later, commit the
+anonymous result and replace the waiver with an evidence-based decision. Do not
+make the evaluator return `GO` by inventing sessions or editing this document
+alone.

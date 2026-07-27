@@ -16,6 +16,7 @@ Merge the stacked pull requests from the bottom upward:
 6. Skills and safe confirmation.
 7. Beginner packaging.
 8. Learner-pilot validation.
+9. Local release and course delivery.
 
 Then check out and pull `main`.
 
@@ -29,18 +30,20 @@ From the repository root:
 docker run --rm \
   -v "$PWD:/workspace:ro" \
   -w /workspace \
-  node:24.16.0-alpine3.22 \
+  node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a \
   node scripts/validate-template-readiness.mjs
 
 ./scripts/test-phase6.sh
 ./scripts/test-phase7.sh
+./scripts/test-phase8.sh
 ./scripts/evaluate-pilot.sh
 ```
 
 The readiness check verifies the expected learner entry points, documentation, screenshots, workflow set, executable macOS helpers, Markdown links, ignored secret locations, and absence of Git LFS pointers.
 
-The pilot evaluator must return `GO`; its default `NO_GO` is a release blocker,
-not a command to bypass. Run the instructor's fresh-copy check in
+The planned pilot was explicitly waived by the repository owner on 2026-07-27.
+The evaluator remains `NO_GO` and must not be changed with invented evidence.
+Review [GO_NO_GO.md](GO_NO_GO.md), then run the instructor's fresh-copy check in
 [INSTRUCTOR_CHECKLIST.md](INSTRUCTOR_CHECKLIST.md) before enabling the template
 setting.
 
@@ -95,5 +98,7 @@ Before teaching:
 - Set a concise repository description.
 - Add topics such as `n8n`, `claude`, `docker`, `ai-agent`, and `beginner-friendly`.
 - Record the tested n8n image and release commit.
+- Generate and verify the architecture-specific instructor kit in [RELEASE.md](RELEASE.md).
+- Create the annotated `v0.1.0` tag only after the release commit's CI is green.
 - Keep the repository private until its intended audience and secret-handling process are agreed.
 - Never include Git LFS assets; GitHub template repositories do not support them.

@@ -1,5 +1,9 @@
 # Local Setup
 
+New to GitHub, Docker, or n8n? Start with the
+[complete beginner getting-started guide](GETTING_STARTED.md). This document is
+the shorter technical reference for the same setup.
+
 ## Outcome
 
 At the end of setup, two local services will be healthy:

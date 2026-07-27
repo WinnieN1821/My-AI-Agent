@@ -12,6 +12,8 @@ const lfsPointerMarker = [
 
 const requiredFiles = [
   "README.md",
+  "VERSION",
+  "CHANGELOG.md",
   "compose.yaml",
   ".env.example",
   ".gitignore",
@@ -25,6 +27,12 @@ const requiredFiles = [
   "backup-windows.cmd",
   "reset.command",
   "reset-windows.cmd",
+  "prepare-instructor-pack.command",
+  "prepare-instructor-pack-windows.cmd",
+  "docs/GETTING_STARTED.md",
+  "docs/COURSE_GUIDE.md",
+  "docs/RELEASE.md",
+  "docs/FEEDBACK_AND_CHANGE_CONTROL.md",
   "docs/GITHUB_DESKTOP.md",
   "docs/INSTRUCTOR_CHECKLIST.md",
   "docs/PILOT_RUNBOOK.md",
@@ -49,6 +57,10 @@ const requiredFiles = [
   "scripts/test-phase7.sh",
   "scripts/evaluate-pilot.mjs",
   "scripts/evaluate-pilot.sh",
+  "scripts/prepare-instructor-pack.sh",
+  "scripts/windows/prepare-instructor-pack.ps1",
+  "scripts/validate-release.mjs",
+  "scripts/test-phase8.sh",
   "scripts/windows/evaluate-pilot.ps1",
   "pilot/README.md",
   "pilot/results.json",
@@ -60,6 +72,9 @@ const requiredFiles = [
   "tests/phase7/test-pilot-evaluator.mjs",
   "tests/phase7/lsof-conflict-fixture.sh",
   ".github/workflows/ci.yml",
+  ".github/ISSUE_TEMPLATE/learner-feedback.yml",
+  ".github/ISSUE_TEMPLATE/improvement.yml",
+  ".github/ISSUE_TEMPLATE/config.yml",
 ];
 
 const executableFiles = [
@@ -74,6 +89,10 @@ const executableFiles = [
   "scripts/evaluate-pilot.mjs",
   "scripts/evaluate-pilot.sh",
   "evaluate-pilot.command",
+  "prepare-instructor-pack.command",
+  "scripts/prepare-instructor-pack.sh",
+  "scripts/validate-release.mjs",
+  "scripts/test-phase8.sh",
 ];
 
 function check(condition, message) {
@@ -146,6 +165,9 @@ for (const requiredText of [
   "backup.command",
   "reset.command",
   "without installing Node.js, npm, or n8n",
+  "Complete beginner getting-started guide",
+  "Eight-exercise course guide",
+  "v0.1.0",
 ]) {
   check(readme.includes(requiredText), `README must mention "${requiredText}"`);
 }
