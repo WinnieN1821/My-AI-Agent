@@ -4,7 +4,7 @@
 
 At the end of setup, two local services will be healthy:
 
-- The chat foundation at [http://localhost:3000](http://localhost:3000).
+- The chat app at [http://localhost:3000](http://localhost:3000).
 - The n8n editor at [http://localhost:5678](http://localhost:5678).
 
 Both services run in Docker. Nothing is published to the internet.
@@ -73,10 +73,10 @@ The script then:
 1. Validates Docker and Docker Compose.
 2. Validates the Compose configuration.
 3. Checks whether ports 3000 and 5678 are available.
-4. Pulls the pinned n8n and nginx images.
+4. Pulls the pinned n8n image and builds the TypeScript chat image.
 5. Starts n8n.
 6. Waits for n8n to become healthy.
-7. Starts the chat foundation.
+7. Starts the chat app.
 8. Confirms both local health endpoints.
 
 ## Local-only networking
@@ -110,6 +110,8 @@ Technical contributors can use:
 
 The underlying Compose command uses the repository's `.env` and `compose.yaml`; a host installation of Node.js or n8n is not required.
 
+The chat image compiles TypeScript during setup. Learners do not need to install Node.js or run an npm command.
+
 ## Expected success
 
 Setup is successful only when:
@@ -121,3 +123,7 @@ Setup is successful only when:
 - Restarting the stack preserves the local n8n owner and saved settings.
 
 If any check fails, use [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+## Make the chat your own
+
+After setup, follow [CUSTOMISE_CHAT.md](CUSTOMISE_CHAT.md) to change the agent name, welcome message, colour, and example prompts. Those beginner-facing settings update after a browser refresh and do not require an image rebuild.

@@ -42,13 +42,14 @@ The default teaching scenario is a **Solo Project Assistant** that can help plan
 
 - [Product baseline](docs/PRODUCT_BASELINE.md)
 - [Chat API contract](docs/CHAT_CONTRACT.md)
+- [Customise the chat](docs/CUSTOMISE_CHAT.md)
 - [Workshop prerequisites](docs/WORKSHOP_PREREQUISITES.md)
 - [Local setup](docs/LOCAL_SETUP.md)
 - [Local operations and recovery](docs/LOCAL_OPERATIONS.md)
 - [Local troubleshooting](docs/TROUBLESHOOTING.md)
 - [Phased implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
-## Start the local foundation
+## Start the local app
 
 Before starting, install Docker Desktop and wait until its engine is running.
 
@@ -64,13 +65,13 @@ The first setup:
 
 1. Generates a private local encryption key.
 2. Checks Docker and the required localhost ports.
-3. Downloads pinned container images.
-4. Starts n8n and the chat foundation.
+3. Downloads the pinned n8n image and builds the chat image.
+4. Starts n8n and the chat app.
 5. Waits until both services are healthy.
 
 Then open:
 
-- Chat foundation: [http://localhost:3000](http://localhost:3000)
+- Chat app: [http://localhost:3000](http://localhost:3000)
 - n8n editor: [http://localhost:5678](http://localhost:5678)
 
 Technical contributors can run:
@@ -81,6 +82,6 @@ Technical contributors can run:
 
 ## Current status
 
-Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, health checks, lifecycle scripts, backup and restore, and cross-platform setup guidance.
+Phase 0 defines the product and teaching baseline. Phase 1 provides the local Docker foundation, persistent n8n data, lifecycle scripts, and recovery guidance. Phase 2 adds the learner-built chat interface, a TypeScript gateway, a stable API contract, safe error handling, and one-file customisation.
 
-The learner-built chat interface and Claude agent workflow are implemented in later phases.
+The n8n Claude agent workflow arrives in Phase 3. Until that workflow is imported and activated, sending a message correctly explains that the local agent is not ready.

@@ -34,5 +34,5 @@ curl --fail --silent --show-error "http://127.0.0.1:${CHAT_PORT}/health" >/dev/n
 curl --fail --silent --show-error "http://127.0.0.1:${N8N_PORT}/healthz" >/dev/null
 
 printf 'AI Solopreneur is healthy.\n'
-printf '  Chat foundation: http://localhost:%s\n' "${CHAT_PORT}"
+printf '  Chat app:          http://localhost:%s\n' "${CHAT_PORT}"
 printf '  n8n editor:       http://localhost:%s\n' "${N8N_PORT}"

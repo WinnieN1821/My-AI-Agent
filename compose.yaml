@@ -45,23 +45,30 @@ services:
     stop_grace_period: 30s
 
   chat:
-    image: nginx:1.28.0-alpine
+    image: ai-solopreneur-chat:phase-2
+    build:
+      context: ./apps/chat
     restart: unless-stopped
     depends_on:
       n8n:
         condition: service_healthy
+    environment:
+      CHAT_REQUEST_TIMEOUT_MS: "60000"
+      N8N_CHAT_WEBHOOK_URL: http://n8n:5678/webhook/chat
+      PORT: "3000"
     ports:
-      - 127.0.0.1:${CHAT_PORT:-3000}:80
+      - 127.0.0.1:${CHAT_PORT:-3000}:3000
     volumes:
-      - ./apps/chat/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./apps/chat/public:/usr/share/nginx/html:ro
+      - ./apps/chat/public:/app/public:ro
     healthcheck:
       test:
         - CMD
-        - wget
-        - --quiet
-        - --spider
-        - http://127.0.0.1/health
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/health')
+          .then((response) => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
       interval: 5s
       timeout: 3s
       retries: 12

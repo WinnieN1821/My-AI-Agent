@@ -14,5 +14,5 @@ Wait-Endpoint "http://127.0.0.1:$chatPort/health"
 Wait-Endpoint "http://127.0.0.1:$n8nPort/healthz"
 
 Write-Host "AI Solopreneur is healthy." -ForegroundColor Green
-Write-Host "  Chat foundation: http://localhost:$chatPort"
+Write-Host "  Chat app:          http://localhost:$chatPort"
 Write-Host "  n8n editor:       http://localhost:$n8nPort"
