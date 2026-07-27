@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Solopreneur — Local Foundation</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card" aria-labelledby="page-title">
+        <p class="eyebrow">Phase 1 · Local foundation</p>
+        <h1 id="page-title">Your local AI workspace is ready.</h1>
+        <p class="lede">
+          The chat container and n8n are running on your computer. The learner-built
+          chat experience arrives in Phase 2.
+        </p>
+
+        <div class="status" role="status">
+          <span class="status__dot" aria-hidden="true"></span>
+          <span>Local chat service healthy</span>
+        </div>
+
+        <div class="actions">
+          <a class="button" href="http://localhost:5678" target="_blank" rel="noreferrer">
+            Open n8n
+          </a>
+          <a class="link" href="/health">View chat health</a>
+        </div>
+
+        <p class="note">
+          Nothing on this page is public. Docker publishes both services to
+          <code>127.0.0.1</code> only.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
