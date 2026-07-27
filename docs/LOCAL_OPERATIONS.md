@@ -44,7 +44,7 @@ The first endpoint checks the chat service, the second checks n8n itself, and th
 
 ## Import the supplied workflows
 
-Workflow import is safe to repeat. It imports the canonical repository files, prepares the local Data Tables without duplicating sample tasks, and publishes only the read-only task subworkflow. The main agent, health workflow, and write workflows remain inactive for deliberate inspection.
+Workflow import is safe to repeat. It imports the canonical repository files, prepares the local Data Tables without duplicating sample tasks, syncs the enabled Markdown skills, and publishes the reviewed runtime subworkflows. The main agent, health workflow, and two temporary setup workflows remain inactive for deliberate inspection.
 
 ### macOS
 
@@ -63,6 +63,30 @@ Double-click `import-workflows-windows.cmd`, or run:
 ```
 
 After import, select the learner's `Anthropic account` credential in the Claude node and publish the main and health workflows. See [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md).
+
+## Sync Markdown skills
+
+After editing `skills/enabled.txt`, a `skill.yaml`, or a `SKILL.md`, sync the bundle without reimporting every workflow:
+
+### macOS
+
+Double-click `sync-skills.command`, or run:
+
+```bash
+./scripts/sync-skills.sh
+```
+
+### Windows
+
+Double-click `sync-skills-windows.cmd`, or run:
+
+```powershell
+.\scripts\windows\sync-skills.ps1
+```
+
+The helper validates the files before changing n8n. It publishes the localhost-only sync endpoint briefly, replaces one `agent_config` row, unpublishes the endpoint, and restarts n8n. Start a new browser conversation after a successful sync.
+
+See [CUSTOMISE_SKILLS.md](CUSTOMISE_SKILLS.md).
 
 ## Export workflow copies
 
@@ -102,8 +126,10 @@ Open **Data tables** in n8n to inspect:
 
 - `tasks`: the project source of truth.
 - `tool_audit`: one record for every task-tool attempt, including validation errors.
+- `pending_actions`: exact, session-bound write proposals and their status.
+- `agent_config`: the currently enabled, content-addressed skill bundle.
 
-Running workflow import again does not duplicate the three sample tasks and does not overwrite edited sample rows. `list_tasks` can run automatically. The create and update workflows stay disconnected from the agent until Phase 5 adds confirmation.
+Running workflow import again does not duplicate the three sample tasks or overwrite edited sample rows. `list_tasks` can run automatically. The model-facing create and update tools can store proposals but cannot mutate `tasks`; only the deterministic confirmation workflow can dispatch a reviewed write worker.
 
 ## Create a backup
 

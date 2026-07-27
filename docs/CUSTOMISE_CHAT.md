@@ -71,7 +71,7 @@ Use one to six prompts. Long prompts are shortened in the interface.
 
 ## Safe customisation boundary
 
-This file controls presentation only. It cannot add tools or grant the agent access to a service. Skills, Claude credentials, and project-management tools belong in n8n and arrive in later phases.
+This file controls presentation only. It cannot add tools or grant the agent access to a service. Agent behaviour belongs in the enabled Markdown skills, while credentials and reviewed project-management workflows belong in n8n. See [CUSTOMISE_SKILLS.md](CUSTOMISE_SKILLS.md).
 
 The interface displays configuration values and agent replies as plain text. It does not execute HTML supplied in a name, prompt, or reply.
 

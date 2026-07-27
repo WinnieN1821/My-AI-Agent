@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Narrow create tool\nThis workflow accepts only the fields needed for one task. It validates every value before writing and uses `requestId` as an idempotency key.\n\nA repeated request returns the original row. Reusing the same request ID with different input returns a conflict instead of silently changing or duplicating data.\n\n**Phase 4:** tool-compatible but not connected to the agent. Phase 5 adds exact confirmation before enabling it.",
+        "content": "## Narrow create worker\nThis workflow accepts only the fields needed for one task. It validates every value before writing and uses `requestId` as an idempotency key.\n\nA repeated request returns the original row. Reusing the same request ID with different input returns a conflict instead of silently changing or duplicating data.\n\n**Phase 5:** the AI cannot call this worker directly. Only `40 - CONFIRM - Task Write` dispatches it after consuming a valid, same-session confirmation.",
         "height": 370,
         "width": 590,
         "color": 3
@@ -579,10 +579,10 @@
   },
   "versionId": "42000000-0000-4000-8000-000000000099",
   "meta": {
-    "phase": 4,
+    "phase": 5,
     "testedWithN8n": "2.30.5",
     "toolRisk": "write",
-    "agentConnection": "deferred-until-phase-5-confirmation"
+    "agentConnection": "confirmation-executor-only"
   },
   "id": "phase4CreateTask",
   "tags": []

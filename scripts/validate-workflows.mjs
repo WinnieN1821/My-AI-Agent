@@ -1,15 +1,20 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compileSkills } from "./compile-skills.mjs";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const workflowDirectory = join(projectRoot, "n8n", "workflows");
 const expectedFiles = [
   "00-start-here-project-partner.json",
   "10-setup-local-task-data.json",
+  "11-setup-sync-enabled-skills.json",
   "20-tool-list-tasks.json",
   "21-tool-create-task.json",
   "22-tool-update-task-status.json",
+  "30-tool-propose-create-task.json",
+  "31-tool-propose-update-task-status.json",
+  "40-confirm-task-write.json",
   "90-debug-agent-health.json",
 ];
 const failures = [];
@@ -88,8 +93,8 @@ if (agentWorkflow) {
   );
   check(
     agentWorkflow.nodes.filter((node) => node.type !== "n8n-nodes-base.stickyNote")
-      .length <= 9,
-    "Agent workflow must remain small enough to explain in one lesson",
+      .length <= 17,
+    "Agent workflow must keep confirmation routing and tool wiring explainable",
   );
   check(
     agentWorkflow.settings?.executionTimeout === 50,
@@ -123,9 +128,9 @@ if (agentWorkflow) {
   check(condition?.type === "n8n-nodes-base.if", "Validation branch: wrong node type");
   check(
     connectionTargets(agentWorkflow, "Request Is Valid?", "main", 0).includes(
-      "Project Partner Agent",
+      "Route Confirmation",
     ),
-    "Validation true branch must lead to the agent",
+    "Validation true branch must lead to deterministic confirmation routing",
   );
   check(
     connectionTargets(agentWorkflow, "Request Is Valid?", "main", 1).includes(
@@ -144,6 +149,10 @@ if (agentWorkflow) {
   check(
     agent?.parameters?.text === "={{ $json.message }}",
     "Agent: must use only the normalised message",
+  );
+  check(
+    agent?.parameters?.options?.systemMessage === "={{ $json.systemMessage }}",
+    "Agent: system instructions must come from the validated context builder",
   );
   check(
     agent?.parameters?.options?.maxIterations === 4,
@@ -220,14 +229,61 @@ if (agentWorkflow) {
     .filter(([, connection]) => Array.isArray(connection.ai_tool))
     .map(([name]) => name);
   check(
-    JSON.stringify(connectedToolNames) === JSON.stringify(["list_tasks"]),
-    "Agent: Phase 4 may connect only the read-only list_tasks tool",
+    JSON.stringify(connectedToolNames) ===
+      JSON.stringify(["list_tasks", "create_task", "update_task_status"]),
+    "Agent: only the reviewed read and proposal-only task tools may be connected",
   );
+
+  const createTool = nodeByName(agentWorkflow, "create_task");
   check(
-    !agentWorkflow.nodes.some((node) =>
-      ["create_task", "update_task_status"].includes(node.name),
+    createTool?.parameters?.workflowId?.value === "phase5ProposeCreateTask" &&
+      /proposal-only/i.test(createTool?.parameters?.description ?? ""),
+    "Agent: create_task must call only the proposal workflow",
+  );
+  const updateTool = nodeByName(agentWorkflow, "update_task_status");
+  check(
+    updateTool?.parameters?.workflowId?.value === "phase5ProposeTaskStatus" &&
+      /proposal-only/i.test(updateTool?.parameters?.description ?? ""),
+    "Agent: update_task_status must call only the proposal workflow",
+  );
+
+  const routeConfirmation = nodeByName(agentWorkflow, "Route Confirmation");
+  check(
+    /\^CONFIRM \[A-F0-9\]\{8\}\$/.test(
+      routeConfirmation?.parameters?.jsCode ?? "",
     ),
-    "Agent: write tools must stay disconnected until Phase 5 confirmation",
+    "Agent: confirmation routing must require the exact phrase format",
+  );
+  const exactConfirmation = nodeByName(agentWorkflow, "Exact Confirmation?");
+  check(
+    connectionTargets(agentWorkflow, "Exact Confirmation?", "main", 0).includes(
+      "Confirm Stored Action",
+    ) &&
+      connectionTargets(agentWorkflow, "Exact Confirmation?", "main", 1).includes(
+        "Load Enabled Skills",
+      ),
+    "Agent: exact confirmations must bypass Claude and ordinary messages must load skills",
+  );
+  const confirmAction = nodeByName(agentWorkflow, "Confirm Stored Action");
+  check(
+    confirmAction?.type === "n8n-nodes-base.executeWorkflow" &&
+      confirmAction?.parameters?.workflowId?.value === "phase5ConfirmTaskWrite",
+    "Agent: exact confirmations must call the reviewed confirmation workflow",
+  );
+  const skillRead = nodeByName(agentWorkflow, "Load Enabled Skills");
+  check(
+    skillRead?.type === "n8n-nodes-base.dataTable" &&
+      skillRead?.parameters?.operation === "get" &&
+      skillRead?.parameters?.dataTableId?.value === "agent_config",
+    "Agent: enabled skills must load only from agent_config",
+  );
+  const contextCode =
+    nodeByName(agentWorkflow, "Build Agent Context")?.parameters?.jsCode ?? "";
+  check(
+    /enabledSkills/.test(contextCode) &&
+      /combinedInstructions/.test(contextCode) &&
+      /Delete, archive, bulk changes/.test(contextCode),
+    "Agent: context builder must apply enabled skills without weakening the risk policy",
   );
 
   const success = nodeByName(agentWorkflow, "Return Agent Reply");
@@ -297,6 +353,27 @@ if (setupWorkflow) {
     auditTable?.parameters?.options?.createIfNotExists === true,
     "Setup: audit table creation must remain repeatable",
   );
+  const pendingTable = nodeByName(setupWorkflow, "Create Pending Actions Table");
+  const pendingColumns =
+    pendingTable?.parameters?.columns?.column?.map((column) => column.name) ?? [];
+  check(
+    JSON.stringify(pendingColumns) ===
+      JSON.stringify([
+        "actionId",
+        "sessionId",
+        "actionType",
+        "proposedInput",
+        "confirmationText",
+        "status",
+        "expiresAt",
+        "consumedAt",
+      ]),
+    "Setup: pending action schema changed unexpectedly",
+  );
+  check(
+    pendingTable?.parameters?.options?.createIfNotExists === true,
+    "Setup: pending action table creation must remain repeatable",
+  );
   const setupWebhook = nodeByName(setupWorkflow, "Temporary Setup Webhook");
   check(
     setupWebhook?.parameters?.httpMethod === "POST" &&
@@ -315,6 +392,53 @@ if (setupWorkflow) {
     nodeByName(setupWorkflow, "Keep Missing Samples")?.parameters?.operation ===
       "rowNotExists",
     "Setup: sample tasks must be inserted only when missing",
+  );
+}
+
+const skillSyncWorkflow = workflows.get("11-setup-sync-enabled-skills.json");
+if (skillSyncWorkflow) {
+  check(
+    skillSyncWorkflow.name === "11 - SETUP - Sync Enabled Skills",
+    "Skill sync workflow must retain its learner-facing name",
+  );
+  const syncWebhook = nodeByName(
+    skillSyncWorkflow,
+    "Temporary Skill Sync Webhook",
+  );
+  check(
+    syncWebhook?.parameters?.httpMethod === "POST" &&
+      syncWebhook?.parameters?.path === "sync-enabled-skills" &&
+      syncWebhook?.parameters?.responseMode === "lastNode",
+    "Skill sync: temporary endpoint must remain a synchronous local POST",
+  );
+  const bundleValidation =
+    nodeByName(skillSyncWorkflow, "Validate Skill Bundle")?.parameters?.jsCode ??
+    "";
+  check(
+    /schemaVersion/.test(bundleValidation) &&
+      /enabledSkills/.test(bundleValidation) &&
+      /combinedInstructions\.length > 24000/.test(bundleValidation) &&
+      /\[a-f0-9\]\{64\}/.test(bundleValidation),
+    "Skill sync: bundle metadata, size, and source hash must be validated",
+  );
+  const configTable = nodeByName(skillSyncWorkflow, "Create Agent Config Table");
+  check(
+    configTable?.parameters?.tableName === "agent_config" &&
+      JSON.stringify(
+        configTable?.parameters?.columns?.column?.map((column) => column.name),
+      ) === JSON.stringify(["configKey", "value", "sourceHash"]),
+    "Skill sync: agent_config schema changed unexpectedly",
+  );
+  const upsert = nodeByName(skillSyncWorkflow, "Upsert Enabled Skills");
+  check(
+    upsert?.parameters?.operation === "upsert" &&
+      upsert?.parameters?.dataTableId?.value === "agent_config" &&
+      upsert?.parameters?.filters?.conditions?.some(
+        (condition) =>
+          condition.keyName === "configKey" &&
+          condition.keyValue === "enabledSkills",
+      ),
+    "Skill sync: enabled skill bundle must replace one stable config row",
   );
 }
 
@@ -434,6 +558,10 @@ if (listWorkflow) {
 
 const createWorkflow = workflows.get("21-tool-create-task.json");
 if (createWorkflow) {
+  check(
+    createWorkflow.meta?.agentConnection === "confirmation-executor-only",
+    "create_task worker must be reachable only through confirmation",
+  );
   const taskOperations = createWorkflow.nodes
     .filter(
       (node) =>
@@ -464,6 +592,10 @@ if (createWorkflow) {
 
 const updateWorkflow = workflows.get("22-tool-update-task-status.json");
 if (updateWorkflow) {
+  check(
+    updateWorkflow.meta?.agentConnection === "confirmation-executor-only",
+    "update_task_status worker must be reachable only through confirmation",
+  );
   const taskOperations = updateWorkflow.nodes
     .filter(
       (node) =>
@@ -491,6 +623,237 @@ if (updateWorkflow) {
     "update_task_status must validate task ID and status",
   );
 }
+
+const proposalFiles = [
+  "30-tool-propose-create-task.json",
+  "31-tool-propose-update-task-status.json",
+];
+const proposalInputs = {
+  "30-tool-propose-create-task.json": [
+    "sessionId",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "dueDate",
+  ],
+  "31-tool-propose-update-task-status.json": [
+    "sessionId",
+    "taskId",
+    "status",
+  ],
+};
+
+for (const file of proposalFiles) {
+  const workflow = workflows.get(file);
+  if (!workflow) {
+    continue;
+  }
+
+  check(
+    workflow.meta?.toolRisk === "write" &&
+      workflow.meta?.taskMutation === "none" &&
+      workflow.meta?.confirmation === "required-before-execution",
+    `${workflow.name}: proposal safety metadata is incomplete`,
+  );
+  check(
+    workflow.nodes.every((node) => allowedToolNodeTypes.has(node.type)),
+    `${workflow.name}: proposal contains a node outside the narrow allowlist`,
+  );
+  const inputNames =
+    nodeByName(workflow, "Tool Input")?.parameters?.workflowInputs?.values?.map(
+      (input) => input.name,
+    ) ?? [];
+  check(
+    JSON.stringify(inputNames) === JSON.stringify(proposalInputs[file]),
+    `${workflow.name}: proposal inputs changed unexpectedly`,
+  );
+
+  const pendingOperations = workflow.nodes
+    .filter(
+      (node) =>
+        node.type === "n8n-nodes-base.dataTable" &&
+        node.parameters?.dataTableId?.value === "pending_actions",
+    )
+    .map((node) => node.parameters.operation);
+  check(
+    JSON.stringify(pendingOperations) === JSON.stringify(["update", "insert"]),
+    `${workflow.name}: proposal may only supersede and insert pending actions`,
+  );
+  check(
+    !workflow.nodes.some(
+      (node) =>
+        node.type === "n8n-nodes-base.dataTable" &&
+        node.parameters?.dataTableId?.value === "tasks" &&
+        node.parameters?.operation !== "get",
+    ),
+    `${workflow.name}: proposal must not mutate the task table`,
+  );
+  const validationCode = workflow.nodes
+    .filter((node) => node.type === "n8n-nodes-base.code")
+    .map((node) => node.parameters?.jsCode ?? "")
+    .join("\n");
+  check(
+    /5 \* 60 \* 1000/.test(validationCode) &&
+      /\^CONFIRM/.test(
+        nodeByName(agentWorkflow, "Route Confirmation")?.parameters?.jsCode ?? "",
+      ),
+    `${workflow.name}: proposals must expire after five minutes`,
+  );
+  check(
+    /CONFIRM \$\{actionId/.test(validationCode),
+    `${workflow.name}: proposal must derive an exact phrase from its action ID`,
+  );
+  const proposalAudit = nodeByName(workflow, "Write Tool Audit");
+  check(
+    proposalAudit?.parameters?.operation === "insert" &&
+      proposalAudit?.parameters?.dataTableId?.value === "tool_audit",
+    `${workflow.name}: proposal outcomes must be audited`,
+  );
+}
+
+const confirmWorkflow = workflows.get("40-confirm-task-write.json");
+if (confirmWorkflow) {
+  check(
+    confirmWorkflow.name === "40 - CONFIRM - Task Write",
+    "Confirmation workflow must retain its learner-facing name",
+  );
+  check(
+    confirmWorkflow.meta?.confirmation?.sessionBound === true &&
+      confirmWorkflow.meta?.confirmation?.exactArguments === true &&
+      confirmWorkflow.meta?.confirmation?.expiresMinutes === 5 &&
+      confirmWorkflow.meta?.confirmation?.singleUse === true &&
+      confirmWorkflow.meta?.confirmation?.consumeBeforeWrite === true,
+    "Confirmation workflow safety metadata is incomplete",
+  );
+  const allowedConfirmationNodeTypes = new Set([
+    "n8n-nodes-base.stickyNote",
+    "n8n-nodes-base.executeWorkflowTrigger",
+    "n8n-nodes-base.code",
+    "n8n-nodes-base.if",
+    "n8n-nodes-base.dataTable",
+    "n8n-nodes-base.executeWorkflow",
+  ]);
+  check(
+    confirmWorkflow.nodes.every((node) =>
+      allowedConfirmationNodeTypes.has(node.type),
+    ),
+    "Confirmation workflow contains an unreviewed capability",
+  );
+  const confirmationInputNames =
+    nodeByName(confirmWorkflow, "Confirmation Input")?.parameters?.workflowInputs
+      ?.values?.map((input) => input.name) ?? [];
+  check(
+    JSON.stringify(confirmationInputNames) ===
+      JSON.stringify(["sessionId", "confirmationText"]),
+    "Confirmation workflow may accept only session and exact phrase",
+  );
+  const confirmationValidation =
+    nodeByName(confirmWorkflow, "Validate Confirmation")?.parameters?.jsCode ?? "";
+  check(
+    /\^CONFIRM \[A-F0-9\]\{8\}\$/.test(confirmationValidation) &&
+      /uuidPattern\.test\(sessionId\)/.test(confirmationValidation),
+    "Confirmation workflow must validate exact phrase and browser session",
+  );
+  const findProposal = nodeByName(confirmWorkflow, "Find Exact Proposal");
+  const findKeys =
+    findProposal?.parameters?.filters?.conditions?.map(
+      (condition) => condition.keyName,
+    ) ?? [];
+  check(
+    findProposal?.parameters?.dataTableId?.value === "pending_actions" &&
+      JSON.stringify(findKeys) ===
+        JSON.stringify(["sessionId", "confirmationText"]),
+    "Confirmation lookup must bind exact phrase to the same session",
+  );
+  const evaluation =
+    nodeByName(confirmWorkflow, "Evaluate Proposal")?.parameters?.jsCode ?? "";
+  check(
+    /CONFIRMATION_EXPIRED/.test(evaluation) &&
+      /CONFIRMATION_ALREADY_USED/.test(evaluation) &&
+      /CONFIRMATION_SUPERSEDED/.test(evaluation) &&
+      /Date\.parse\(row\.expiresAt\) <= Date\.now\(\)/.test(evaluation),
+    "Confirmation workflow must reject expired, used, and superseded proposals",
+  );
+  const consume = nodeByName(confirmWorkflow, "Consume Exact Proposal");
+  const consumeFilters =
+    consume?.parameters?.filters?.conditions?.map((condition) => [
+      condition.keyName,
+      condition.keyValue,
+    ]) ?? [];
+  check(
+    consume?.parameters?.operation === "update" &&
+      consume?.parameters?.dataTableId?.value === "pending_actions" &&
+      JSON.stringify(consumeFilters.map(([key]) => key)) ===
+        JSON.stringify(["actionId", "sessionId", "status"]) &&
+      consumeFilters.some(
+        ([key, value]) => key === "status" && value === "pending",
+      ),
+    "Confirmation consumption must conditionally bind action, session, and pending status",
+  );
+  const consumeFields = Object.keys(consume?.parameters?.columns?.value ?? {}).sort();
+  check(
+    JSON.stringify(consumeFields) ===
+      JSON.stringify(["consumedAt", "status"]),
+    "Confirmation may mark only status and consumption time",
+  );
+  check(
+    connectionTargets(confirmWorkflow, "Proposal Is Ready?", "main", 0).includes(
+      "Consume Exact Proposal",
+    ) &&
+      connectionTargets(confirmWorkflow, "Consume Exact Proposal", "main", 0).includes(
+        "Verify Single Use",
+      ) &&
+      connectionTargets(confirmWorkflow, "Proposal Was Consumed?", "main", 0).includes(
+        "Create Task Action?",
+      ),
+    "Confirmation must consume and verify single use before dispatching a write",
+  );
+  const executionTargets = confirmWorkflow.nodes
+    .filter((node) => node.type === "n8n-nodes-base.executeWorkflow")
+    .map((node) => node.parameters?.workflowId?.value)
+    .sort();
+  check(
+    JSON.stringify(executionTargets) ===
+      JSON.stringify(["phase4CreateTask", "phase4UpdateTaskStatus"]),
+    "Confirmation may dispatch only the two reviewed task write workers",
+  );
+}
+
+const skillBundle = await compileSkills(join(projectRoot, "skills"));
+check(
+  JSON.stringify(skillBundle.enabledSkills.map((skill) => skill.id)) ===
+    JSON.stringify(["project-assistant", "task-capture", "weekly-status"]),
+  "Enabled skill list must contain the three reviewed Phase 5 examples",
+);
+check(
+  skillBundle.combinedInstructions.length <= 24_000 &&
+    /^[a-f0-9]{64}$/.test(skillBundle.sourceHash),
+  "Compiled skill bundle must remain bounded and content-addressed",
+);
+
+const toolPolicy = JSON.parse(
+  await readFile(join(projectRoot, "tools", "policy.json"), "utf8"),
+);
+const availableToolPolicy = toolPolicy.tools.filter((tool) => tool.available);
+check(
+  toolPolicy.schemaVersion === 1 &&
+    JSON.stringify(
+      availableToolPolicy.map((tool) => [tool.id, tool.risk, tool.mode]),
+    ) ===
+      JSON.stringify([
+        ["list_tasks", "read", "automatic"],
+        ["create_task", "write", "confirmation_required"],
+        ["update_task_status", "write", "confirmation_required"],
+      ]),
+  "Tool policy must classify the reviewed read and write tools",
+);
+check(
+  toolPolicy.tools
+    .filter((tool) => tool.risk === "destructive")
+    .every((tool) => tool.available === false && tool.modelCallable === false),
+  "Every destructive tool must remain unavailable to the model",
+);
 
 const healthWorkflow = workflows.get("90-debug-agent-health.json");
 if (healthWorkflow) {

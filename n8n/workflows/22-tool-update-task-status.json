@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Narrow status-update tool\nThis workflow can change only one task's `status`. It cannot edit titles, descriptions, priorities, dates, or arbitrary columns.\n\n`requestId` makes a repeated update safe. Missing tasks and invalid statuses return structured errors and still produce an audit attempt.\n\n**Phase 4:** tool-compatible but not connected to the agent. Phase 5 adds exact confirmation before enabling it.",
+        "content": "## Narrow status-update worker\nThis workflow can change only one task's `status`. It cannot edit titles, descriptions, priorities, dates, or arbitrary columns.\n\n`requestId` makes a repeated update safe. Missing tasks and invalid statuses return structured errors and still produce an audit attempt.\n\n**Phase 5:** the AI cannot call this worker directly. Only `40 - CONFIRM - Task Write` dispatches it after consuming a valid, same-session confirmation.",
         "height": 350,
         "width": 590,
         "color": 3
@@ -579,10 +579,10 @@
   },
   "versionId": "43000000-0000-4000-8000-000000000099",
   "meta": {
-    "phase": 4,
+    "phase": 5,
     "testedWithN8n": "2.30.5",
     "toolRisk": "write",
-    "agentConnection": "deferred-until-phase-5-confirmation"
+    "agentConnection": "confirmation-executor-only"
   },
   "id": "phase4UpdateTaskStatus",
   "tags": []

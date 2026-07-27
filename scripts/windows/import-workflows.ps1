@@ -37,9 +37,10 @@ else {
     Get-EnvValue "N8N_PORT" "5678"
 }
 $setupPublished = $false
+$skillSyncPublished = $false
 
 try {
-    Write-Host "`nPreparing the local task tables and read-only tool..."
+    Write-Host "`nPreparing local data, enabled skills, and reviewed tool dependencies..."
     Invoke-Compose @(
         "exec",
         "-T",
@@ -49,14 +50,35 @@ try {
         "--id=phase4TaskSetup"
     ) *> $null
     $setupPublished = $true
+
     Invoke-Compose @(
         "exec",
         "-T",
         "n8n",
         "n8n",
         "publish:workflow",
-        "--id=phase4ListTasks"
+        "--id=phase5SyncEnabledSkills"
     ) *> $null
+    $skillSyncPublished = $true
+
+    $runtimeWorkflowIds = @(
+        "phase4ListTasks",
+        "phase4CreateTask",
+        "phase4UpdateTaskStatus",
+        "phase5ProposeCreateTask",
+        "phase5ProposeTaskStatus",
+        "phase5ConfirmTaskWrite"
+    )
+    foreach ($workflowId in $runtimeWorkflowIds) {
+        Invoke-Compose @(
+            "exec",
+            "-T",
+            "n8n",
+            "n8n",
+            "publish:workflow",
+            "--id=$workflowId"
+        ) *> $null
+    }
 
     Invoke-Compose @("restart", "n8n") *> $null
     Invoke-Compose @("up", "-d", "--wait", "--wait-timeout", "240", "n8n") *> $null
@@ -66,6 +88,24 @@ try {
         -Uri "http://127.0.0.1:$n8nPort/webhook/setup-task-data"
     if (-not $setupResult.ok) {
         throw "Local task setup returned an unexpected response."
+    }
+
+    $skillBundle = (& docker run --rm `
+        -v "${script:ProjectRoot}:/workspace:ro" `
+        -w /workspace `
+        node:24.16.0-alpine3.22 `
+        node scripts/compile-skills.mjs | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Enabled skill validation failed."
+    }
+
+    $skillResult = Invoke-RestMethod `
+        -Method Post `
+        -Uri "http://127.0.0.1:$n8nPort/webhook/sync-enabled-skills" `
+        -ContentType "application/json" `
+        -Body $skillBundle
+    if (-not $skillResult.ok) {
+        throw "Enabled skill sync returned an unexpected response."
     }
 }
 finally {
@@ -79,12 +119,32 @@ finally {
             "unpublish:workflow",
             "--id=phase4TaskSetup"
         ) *> $null
+    }
+    if ($skillSyncPublished) {
+        Invoke-Compose @(
+            "exec",
+            "-T",
+            "n8n",
+            "n8n",
+            "unpublish:workflow",
+            "--id=phase5SyncEnabledSkills"
+        ) *> $null
+    }
+    if ($setupPublished -or $skillSyncPublished) {
         Invoke-Compose @("restart", "n8n") *> $null
-        Invoke-Compose @("up", "-d", "--wait", "--wait-timeout", "240", "n8n") *> $null
+        Invoke-Compose @(
+            "up",
+            "-d",
+            "--wait",
+            "--wait-timeout",
+            "240",
+            "n8n"
+        ) *> $null
     }
 }
 
 Write-Host "`nWorkflows imported successfully." -ForegroundColor Green
 Write-Host "Local task tables and three sample tasks are ready."
+Write-Host "Enabled Markdown skills are synced into the agent."
 Write-Host "Open http://localhost:$n8nPort and follow docs/N8N_AGENT_SETUP.md."
 Write-Host "The main agent stays inactive until you select your Anthropic credential and publish it."
