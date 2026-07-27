@@ -44,7 +44,7 @@ The first endpoint checks the chat service, the second checks n8n itself, and th
 
 ## Import the supplied workflows
 
-Workflow import is safe to repeat. It imports the canonical repository files as inactive drafts so a learner can inspect them before publishing.
+Workflow import is safe to repeat. It imports the canonical repository files, prepares the local Data Tables without duplicating sample tasks, and publishes only the read-only task subworkflow. The main agent, health workflow, and write workflows remain inactive for deliberate inspection.
 
 ### macOS
 
@@ -62,7 +62,7 @@ Double-click `import-workflows-windows.cmd`, or run:
 .\scripts\windows\import-workflows.ps1
 ```
 
-After import, select the learner's `Anthropic account` credential in the Claude node and publish both workflows. See [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md).
+After import, select the learner's `Anthropic account` credential in the Claude node and publish the main and health workflows. See [N8N_AGENT_SETUP.md](N8N_AGENT_SETUP.md).
 
 ## Export workflow copies
 
@@ -82,6 +82,8 @@ Export after making a deliberate visual workflow change:
 
 The scripts write timestamped copies below `n8n/exports/`. That directory is ignored by Git. Exports may contain credential references even though they do not contain the decrypted API key, so review them carefully before copying changes into `n8n/workflows/`.
 
+The local task rows are data, not workflow JSON. They remain in the persistent n8n volume and are included by the repository backup process.
+
 ## Conversation memory
 
 The first workflow uses n8n Simple Memory:
@@ -93,6 +95,15 @@ The first workflow uses n8n Simple Memory:
 - Restarting or stopping n8n clears conversation memory.
 
 Workflows, the n8n owner account, and encrypted credentials do persist across a normal restart. Durable conversation history is deliberately deferred from the local beginner release.
+
+## Local task data
+
+Open **Data tables** in n8n to inspect:
+
+- `tasks`: the project source of truth.
+- `tool_audit`: one record for every task-tool attempt, including validation errors.
+
+Running workflow import again does not duplicate the three sample tasks and does not overwrite edited sample rows. `list_tasks` can run automatically. The create and update workflows stay disconnected from the agent until Phase 5 adds confirmation.
 
 ## Create a backup
 

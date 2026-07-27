@@ -46,6 +46,10 @@ export_workflow() {
 }
 
 export_workflow "phase3StartHere" "00-start-here-project-partner.json"
+export_workflow "phase4TaskSetup" "10-setup-local-task-data.json"
+export_workflow "phase4ListTasks" "20-tool-list-tasks.json"
+export_workflow "phase4CreateTask" "21-tool-create-task.json"
+export_workflow "phase4UpdateTaskStatus" "22-tool-update-task-status.json"
 export_workflow "phase3AgentHealth" "90-debug-agent-health.json"
 
 printf 'Workflow copies exported to:\n  %s\n' "${EXPORT_DIRECTORY}"

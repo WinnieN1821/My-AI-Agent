@@ -6,6 +6,10 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const workflowDirectory = join(projectRoot, "n8n", "workflows");
 const expectedFiles = [
   "00-start-here-project-partner.json",
+  "10-setup-local-task-data.json",
+  "20-tool-list-tasks.json",
+  "21-tool-create-task.json",
+  "22-tool-update-task-status.json",
   "90-debug-agent-health.json",
 ];
 const failures = [];
@@ -84,7 +88,7 @@ if (agentWorkflow) {
   );
   check(
     agentWorkflow.nodes.filter((node) => node.type !== "n8n-nodes-base.stickyNote")
-      .length <= 8,
+      .length <= 9,
     "Agent workflow must remain small enough to explain in one lesson",
   );
   check(
@@ -196,6 +200,36 @@ if (agentWorkflow) {
     "Memory must be connected to the agent",
   );
 
+  const listTool = nodeByName(agentWorkflow, "list_tasks");
+  check(
+    listTool?.type === "@n8n/n8n-nodes-langchain.toolWorkflow" &&
+      listTool?.typeVersion === 2.2,
+    "Agent: expected Call n8n Workflow Tool 2.2 for list_tasks",
+  );
+  check(
+    listTool?.parameters?.workflowId?.value === "phase4ListTasks",
+    "Agent: list_tasks must call the reviewed list subworkflow",
+  );
+  check(
+    connectionTargets(agentWorkflow, "list_tasks", "ai_tool", 0).includes(
+      "Project Partner Agent",
+    ),
+    "Agent: list_tasks must be connected as an AI tool",
+  );
+  const connectedToolNames = Object.entries(agentWorkflow.connections)
+    .filter(([, connection]) => Array.isArray(connection.ai_tool))
+    .map(([name]) => name);
+  check(
+    JSON.stringify(connectedToolNames) === JSON.stringify(["list_tasks"]),
+    "Agent: Phase 4 may connect only the read-only list_tasks tool",
+  );
+  check(
+    !agentWorkflow.nodes.some((node) =>
+      ["create_task", "update_task_status"].includes(node.name),
+    ),
+    "Agent: write tools must stay disconnected until Phase 5 confirmation",
+  );
+
   const success = nodeByName(agentWorkflow, "Return Agent Reply");
   const successBody = success?.parameters?.responseBody ?? "";
   check(
@@ -217,7 +251,248 @@ if (agentWorkflow) {
   );
 }
 
-const healthWorkflow = workflows.get(expectedFiles[1]);
+const setupWorkflow = workflows.get("10-setup-local-task-data.json");
+if (setupWorkflow) {
+  check(
+    setupWorkflow.name === "10 - SETUP - Local Task Data",
+    "Setup workflow must retain its learner-facing name",
+  );
+  const tasksTable = nodeByName(setupWorkflow, "Create Tasks Table");
+  const taskColumns =
+    tasksTable?.parameters?.columns?.column?.map((column) => column.name) ?? [];
+  check(
+    JSON.stringify(taskColumns) ===
+      JSON.stringify([
+        "requestId",
+        "lastRequestId",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "dueDate",
+      ]),
+    "Setup: tasks table schema changed unexpectedly",
+  );
+  check(
+    tasksTable?.parameters?.options?.createIfNotExists === true,
+    "Setup: tasks table creation must remain repeatable",
+  );
+  const auditTable = nodeByName(setupWorkflow, "Create Tool Audit Table");
+  const auditColumns =
+    auditTable?.parameters?.columns?.column?.map((column) => column.name) ?? [];
+  check(
+    JSON.stringify(auditColumns) ===
+      JSON.stringify([
+        "occurredAt",
+        "sessionId",
+        "requestId",
+        "toolName",
+        "proposedInput",
+        "result",
+        "error",
+      ]),
+    "Setup: tool audit schema changed unexpectedly",
+  );
+  check(
+    auditTable?.parameters?.options?.createIfNotExists === true,
+    "Setup: audit table creation must remain repeatable",
+  );
+  const setupWebhook = nodeByName(setupWorkflow, "Temporary Setup Webhook");
+  check(
+    setupWebhook?.parameters?.httpMethod === "POST" &&
+      setupWebhook?.parameters?.path === "setup-task-data" &&
+      setupWebhook?.parameters?.responseMode === "lastNode",
+    "Setup: temporary webhook must remain a synchronous local POST",
+  );
+  const sampleCode =
+    nodeByName(setupWorkflow, "Define Sample Tasks")?.parameters?.jsCode ?? "";
+  check(
+    (sampleCode.match(/00000000-0000-4000-8000-00000000010[1-3]/g) ?? [])
+      .length === 3,
+    "Setup: expected exactly three stable sample task request IDs",
+  );
+  check(
+    nodeByName(setupWorkflow, "Keep Missing Samples")?.parameters?.operation ===
+      "rowNotExists",
+    "Setup: sample tasks must be inserted only when missing",
+  );
+}
+
+const toolFiles = [
+  "20-tool-list-tasks.json",
+  "21-tool-create-task.json",
+  "22-tool-update-task-status.json",
+];
+const expectedToolInputs = {
+  "20-tool-list-tasks.json": ["sessionId", "status", "priority"],
+  "21-tool-create-task.json": [
+    "sessionId",
+    "requestId",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "dueDate",
+  ],
+  "22-tool-update-task-status.json": [
+    "sessionId",
+    "requestId",
+    "taskId",
+    "status",
+  ],
+};
+const expectedRisk = {
+  "20-tool-list-tasks.json": "read",
+  "21-tool-create-task.json": "write",
+  "22-tool-update-task-status.json": "write",
+};
+const allowedToolNodeTypes = new Set([
+  "n8n-nodes-base.stickyNote",
+  "n8n-nodes-base.executeWorkflowTrigger",
+  "n8n-nodes-base.code",
+  "n8n-nodes-base.if",
+  "n8n-nodes-base.dataTable",
+]);
+
+for (const file of toolFiles) {
+  const workflow = workflows.get(file);
+  if (!workflow) {
+    continue;
+  }
+  const trigger = nodeByName(workflow, "Tool Input");
+  const inputNames =
+    trigger?.parameters?.workflowInputs?.values?.map((input) => input.name) ?? [];
+  check(
+    trigger?.type === "n8n-nodes-base.executeWorkflowTrigger" &&
+      trigger?.typeVersion === 1.2,
+    `${workflow.name}: expected typed Execute Workflow Trigger 1.2`,
+  );
+  check(
+    JSON.stringify(inputNames) === JSON.stringify(expectedToolInputs[file]),
+    `${workflow.name}: visible input schema changed unexpectedly`,
+  );
+  check(
+    workflow.meta?.toolRisk === expectedRisk[file],
+    `${workflow.name}: tool risk metadata is missing or incorrect`,
+  );
+  check(
+    workflow.nodes.every((node) => allowedToolNodeTypes.has(node.type)),
+    `${workflow.name}: tool contains a node outside the narrow allowlist`,
+  );
+  check(
+    workflow.nodes
+      .filter((node) => node.type === "n8n-nodes-base.dataTable")
+      .every((node) =>
+        ["tasks", "tool_audit"].includes(node.parameters?.dataTableId?.value),
+      ),
+    `${workflow.name}: tool may access only tasks and tool_audit`,
+  );
+  const auditNode = nodeByName(workflow, "Write Tool Audit");
+  check(
+    auditNode?.parameters?.operation === "insert" &&
+      auditNode?.parameters?.dataTableId?.value === "tool_audit",
+    `${workflow.name}: every result must be written to tool_audit`,
+  );
+  const auditFields = Object.keys(
+    auditNode?.parameters?.columns?.value ?? {},
+  ).sort();
+  check(
+    JSON.stringify(auditFields) ===
+      JSON.stringify(
+        [
+          "error",
+          "occurredAt",
+          "proposedInput",
+          "requestId",
+          "result",
+          "sessionId",
+          "toolName",
+        ].sort(),
+      ),
+    `${workflow.name}: audit mapping must retain all required fields`,
+  );
+}
+
+const listWorkflow = workflows.get("20-tool-list-tasks.json");
+if (listWorkflow) {
+  const taskNodes = listWorkflow.nodes.filter(
+    (node) =>
+      node.type === "n8n-nodes-base.dataTable" &&
+      node.parameters?.dataTableId?.value === "tasks",
+  );
+  check(
+    taskNodes.length === 1 && taskNodes[0].parameters?.operation === "get",
+    "list_tasks must have exactly one read-only task-table operation",
+  );
+  const validation =
+    nodeByName(listWorkflow, "Validate List Input")?.parameters?.jsCode ?? "";
+  check(
+    /INVALID_STATUS/.test(validation) && /INVALID_PRIORITY/.test(validation),
+    "list_tasks must validate status and priority filters",
+  );
+}
+
+const createWorkflow = workflows.get("21-tool-create-task.json");
+if (createWorkflow) {
+  const taskOperations = createWorkflow.nodes
+    .filter(
+      (node) =>
+        node.type === "n8n-nodes-base.dataTable" &&
+        node.parameters?.dataTableId?.value === "tasks",
+    )
+    .map((node) => node.parameters.operation);
+  check(
+    JSON.stringify(taskOperations) === JSON.stringify(["get", "insert"]),
+    "create_task must only look up an idempotency key and insert one task",
+  );
+  const validation =
+    nodeByName(createWorkflow, "Validate Create Input")?.parameters?.jsCode ?? "";
+  check(
+    /title\.length === 0/.test(validation) &&
+      /title\.length > 120/.test(validation) &&
+      /description\.length > 2000/.test(validation) &&
+      /INVALID_STATUS/.test(validation),
+    "create_task must retain title, description, and status validation",
+  );
+  check(
+    /IDEMPOTENCY_CONFLICT/.test(
+      nodeByName(createWorkflow, "Decide Create Action")?.parameters?.jsCode ?? "",
+    ),
+    "create_task must reject reuse of a request ID with different input",
+  );
+}
+
+const updateWorkflow = workflows.get("22-tool-update-task-status.json");
+if (updateWorkflow) {
+  const taskOperations = updateWorkflow.nodes
+    .filter(
+      (node) =>
+        node.type === "n8n-nodes-base.dataTable" &&
+        node.parameters?.dataTableId?.value === "tasks",
+    )
+    .map((node) => node.parameters.operation);
+  check(
+    JSON.stringify(taskOperations) === JSON.stringify(["get", "update"]),
+    "update_task_status must only read a task and update it",
+  );
+  const updateFields = Object.keys(
+    nodeByName(updateWorkflow, "Update Task Status")?.parameters?.columns?.value ??
+      {},
+  ).sort();
+  check(
+    JSON.stringify(updateFields) ===
+      JSON.stringify(["lastRequestId", "status"]),
+    "update_task_status may change only status and its idempotency marker",
+  );
+  const validation =
+    nodeByName(updateWorkflow, "Validate Update Input")?.parameters?.jsCode ?? "";
+  check(
+    /INVALID_TASK_ID/.test(validation) && /INVALID_STATUS/.test(validation),
+    "update_task_status must validate task ID and status",
+  );
+}
+
+const healthWorkflow = workflows.get("90-debug-agent-health.json");
 if (healthWorkflow) {
   check(
     healthWorkflow.name === "90 - DEBUG - Agent Health",

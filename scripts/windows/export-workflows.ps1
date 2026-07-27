@@ -39,6 +39,10 @@ function Export-AgentWorkflow {
 }
 
 Export-AgentWorkflow "phase3StartHere" "00-start-here-project-partner.json"
+Export-AgentWorkflow "phase4TaskSetup" "10-setup-local-task-data.json"
+Export-AgentWorkflow "phase4ListTasks" "20-tool-list-tasks.json"
+Export-AgentWorkflow "phase4CreateTask" "21-tool-create-task.json"
+Export-AgentWorkflow "phase4UpdateTaskStatus" "22-tool-update-task-status.json"
 Export-AgentWorkflow "phase3AgentHealth" "90-debug-agent-health.json"
 
 Write-Host "Workflow copies exported to:`n  $exportDirectory" -ForegroundColor Green
