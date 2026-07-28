@@ -9,6 +9,7 @@ $version = (Get-Content (Join-Path $script:ProjectRoot "VERSION") -Raw).Trim()
 $n8nImage = "docker.n8n.io/n8nio/n8n:2.30.5@sha256:450853cd21a2ce36587c4c860eb26927c1ceba9496bf55f4c213b5d3a6dc8c6f"
 $nodeImage = "node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a"
 $chatImage = "ai-solopreneur-chat:$version"
+$documentImage = "ai-solopreneur-document-worker:$version"
 
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $script:ProjectRoot "instructor-pack"
@@ -76,6 +77,7 @@ Platform: $platform
 n8n image: $n8nImage
 Node image: $nodeImage
 Chat image: $chatImage
+Document reader image: $documentImage
 Generated UTC: $((Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
 "@ | Set-Content (Join-Path $packDirectory "RELEASE-METADATA.txt") -Encoding utf8
 
@@ -88,7 +90,7 @@ This kit is for **$platform** and AI Solopreneur **v$version**.
 2. Wait until its engine reports ready.
 3. Open PowerShell in this folder.
 4. Run ``docker load -i docker-images-$platform.tar``.
-5. Confirm the n8n and ``$chatImage`` images appear in Docker Desktop.
+5. Confirm the n8n, ``$chatImage``, and ``$documentImage`` images appear in Docker Desktop.
 
 The archive reduces workshop downloads. Real Claude messages still require
 internet access and each learner's private Anthropic API key.
@@ -101,12 +103,14 @@ if (-not $MetadataOnly) {
     & docker pull $nodeImage
     if ($LASTEXITCODE -ne 0) { throw "Could not pull the locked Node image." }
 
-    Write-Host "Building the versioned chat image..."
+    Write-Host "Building the versioned local app images..."
     & docker build --tag $chatImage (Join-Path $script:ProjectRoot "apps\chat")
     if ($LASTEXITCODE -ne 0) { throw "Could not build the chat image." }
+    & docker build --tag $documentImage (Join-Path $script:ProjectRoot "services\document-worker")
+    if ($LASTEXITCODE -ne 0) { throw "Could not build the document reader image." }
 
     $imageArchive = Join-Path $packDirectory "docker-images-$platform.tar"
-    & docker image save --output $imageArchive $n8nImage $nodeImage $chatImage
+    & docker image save --output $imageArchive $n8nImage $nodeImage $chatImage $documentImage
     if ($LASTEXITCODE -ne 0) { throw "Could not save the Docker images." }
 
     $sourceArchive = Join-Path $packDirectory "ai-solopreneur-v$version-source.zip"

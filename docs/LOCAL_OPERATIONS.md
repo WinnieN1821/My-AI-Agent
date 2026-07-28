@@ -38,9 +38,12 @@ Technical contributors can also run:
 docker compose ps
 ```
 
-Both services should report `healthy`.
+All three services should report `healthy`.
 
-The first endpoint checks the chat service, the second checks n8n itself, and the third checks that n8n can run a published workflow. The workflow health response deliberately does not call Claude or expose credentials.
+The first endpoint checks the chat service, the second checks n8n itself, and
+the third checks that n8n can run a published workflow. The document reader has
+no host port; the diagnostic checks its health from inside Docker. The workflow
+health response deliberately does not call Claude or expose credentials.
 
 ## Run friendly diagnostics
 
@@ -159,6 +162,15 @@ Open **Data tables** in n8n to inspect:
 
 Running workflow import again does not duplicate the three sample tasks or overwrite edited sample rows. `list_tasks` can run automatically. The model-facing create and update tools can store proposals but cannot mutate `tasks`; only the deterministic confirmation workflow can dispatch a reviewed write worker.
 
+## Extracted document context
+
+Uploaded source files are not stored. Their extracted text is held in the
+separate `document_data` Docker volume for up to 24 hours and is removed on
+expiry, when the browser removes it, or when the whole stack is reset.
+
+The normal backup intentionally excludes this temporary document volume. Keep
+the original source files somewhere appropriate if they must be retained.
+
 ## Create a backup
 
 A backup contains:
@@ -213,7 +225,7 @@ Type `RESTORE` when prompted.
 
 Restore reinstates both the n8n volume data and the matching encryption key, then starts the stack and waits for healthy services.
 
-## Reset all local n8n data
+## Reset all local app data
 
 Reset permanently removes:
 
@@ -222,6 +234,7 @@ Reset permanently removes:
 - Workflows.
 - Execution history.
 - Other data in the n8n Docker volume.
+- Temporary extracted document context in the document Docker volume.
 
 It preserves `.env`.
 

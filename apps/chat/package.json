@@ -12,7 +12,11 @@
     "start": "node dist/server.js",
     "test": "npm run build && node --test test/*.test.mjs"
   },
+  "dependencies": {
+    "busboy": "1.6.0"
+  },
   "devDependencies": {
+    "@types/busboy": "1.5.4",
     "@types/node": "24.13.3",
     "typescript": "7.0.2"
   }

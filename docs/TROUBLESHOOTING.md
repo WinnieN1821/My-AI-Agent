@@ -10,6 +10,9 @@ Run `diagnose.command` on macOS or `diagnose-windows.cmd` on Windows first. It d
 | Docker is installed but diagnostics show `[!!]` | Docker's engine is not ready | Open Docker Desktop and wait until it reports Ready |
 | Port 3000 or 5678 is in use | Another local app owns the port | Close that app or change the matching `.env` value |
 | Chat opens but says the agent is not ready | Workflow `00` is not published | Follow the yellow diagnostic action and publish workflow `00` |
+| Upload says the document reader is not ready | `document-worker` is still starting or stopped | Restart the local stack, wait for it to become healthy, then retry |
+| PDF says no readable text was found | The PDF is probably an image-only scan | Create a searchable PDF with trusted OCR software or paste reviewed text |
+| File type is unsupported | The file is not searchable PDF, DOCX, or UTF-8 TXT | Export it to a supported format and retry |
 | Diagnostic says the Anthropic credential is missing | The Claude node still references a nonexistent placeholder | Create `Anthropic account`, select it in the Claude node, save, and publish |
 | n8n Overview has no learner checklist | Automatic import was interrupted | Run the platform's `import-workflows` fallback |
 | Claude returns an authentication error | API key is invalid or revoked | Replace only the n8n credential; never put the key in a file |
@@ -55,7 +58,31 @@ After changing a port, use the new localhost address in the browser.
 3. Check that Docker Desktop is running.
 4. Run `docker compose ps` if comfortable using a terminal.
 
-The chat service starts only after n8n reports healthy.
+The chat service starts only after n8n and the internal document reader report
+healthy.
+
+## A document will not upload
+
+The document reader accepts searchable PDF, Word `.docx`, and UTF-8 `.txt`
+files up to 20 MB.
+
+1. Confirm the file has one of those extensions.
+2. For a PDF, try selecting a sentence. If you cannot, it is probably an
+   image-only scan and needs OCR before upload.
+3. Confirm the file is not password protected.
+4. Restart the local stack and wait for the chat to open.
+5. Retry with a small plain-text file.
+
+Technical helpers can run:
+
+```bash
+docker compose ps
+docker compose logs --tail 100 document-worker
+```
+
+The original file is processed locally. Extracted text is sent to Claude only
+when the user submits a chat request. See
+[DOCUMENT_UPLOADS.md](DOCUMENT_UPLOADS.md) for limits and privacy behaviour.
 
 ## The chat says the local agent is not ready
 

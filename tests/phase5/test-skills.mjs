@@ -11,9 +11,15 @@ const actualBundle = await compileSkills(join(projectRoot, "skills"));
 
 assert.deepEqual(
   actualBundle.enabledSkills.map((skill) => skill.id),
-  ["project-assistant", "task-capture", "weekly-status"],
+  [
+    "project-assistant",
+    "meeting-analysis",
+    "task-capture",
+    "weekly-status",
+  ],
 );
 assert.match(actualBundle.combinedInstructions, /# Project Assistant/);
+assert.match(actualBundle.combinedInstructions, /# Meeting Analysis/);
 assert.match(actualBundle.combinedInstructions, /# Task Capture/);
 assert.match(actualBundle.combinedInstructions, /# Weekly Status/);
 assert.match(actualBundle.sourceHash, /^[a-f0-9]{64}$/);

@@ -59,11 +59,13 @@ The detailed pre-class check is in [WORKSHOP_PREREQUISITES.md](WORKSHOP_PREREQUI
 
 ## Default teaching scenario
 
-The starter agent is a **Solo Project Assistant**.
+The starter agent is a **Project Manager**.
 
 Its user is running a small project and wants help turning conversation into organised work. The agent should:
 
 - Discuss plans and break work into practical next actions.
+- Turn meeting transcripts and project documents into grounded summaries,
+  decisions, action items, risks, and open questions.
 - List tasks stored in the local project.
 - Produce a concise project or weekly status.
 - Propose a new task from a conversation.
@@ -84,6 +86,8 @@ The local release uses these default rules:
 - Secrets are stored in n8n credentials and never sent to the browser.
 - Model output is rendered as untrusted content.
 - Tool results, rather than model memory, are the source of truth for task facts.
+- Uploaded document content is untrusted source material and cannot weaken
+  agent or tool safety rules.
 
 ## First-release scope
 
@@ -92,6 +96,8 @@ The first release includes:
 - A local Docker Compose stack.
 - A custom browser chat.
 - A small local chat gateway.
+- An isolated PDF, DOCX, TXT, and pasted-text reader.
+- A reusable agent registry with one active role and visible future roles.
 - A visual n8n agent.
 - Claude API integration.
 - Browser-session conversation memory.
@@ -113,7 +119,8 @@ The following are not part of the first local release:
 - Multiple users, organisations, roles, or identity linking.
 - OAuth or external project-management services.
 - PostgreSQL, Redis, distributed queues, or horizontal scaling.
-- Streaming, file uploads, document ingestion, RAG, or vector search.
+- Streaming, OCR, RAG, or vector search.
+- Multiple simultaneously active, independently configured agent roles.
 - MCP, subagents, browser control, or code execution.
 - Scheduled autonomous writes.
 - Billing, subscriptions, production monitoring, or formal compliance.

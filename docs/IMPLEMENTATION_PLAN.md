@@ -1,5 +1,11 @@
 # AI Solopreneur: Local-First Implementation Plan
 
+> **Status note:** Phases 0–8 describe the original local release. The current
+> repository also implements bounded PDF, DOCX, TXT, and pasted-text context,
+> plus a reusable agent registry. The current contracts are documented in
+> [CHAT_CONTRACT.md](CHAT_CONTRACT.md), [DOCUMENT_UPLOADS.md](DOCUMENT_UPLOADS.md),
+> and [ADD_AN_AGENT.md](ADD_AN_AGENT.md).
+
 ## 1. Objective
 
 Build a repository that non-technical teams can copy, start locally with Docker, customise, and extend into a useful Claude-powered agent.
@@ -35,6 +41,8 @@ Cloud deployment and external chat channels are explicitly deferred until the lo
 - n8n editor and workflow runtime.
 - A custom browser-based chat interface.
 - A small chat gateway that keeps n8n details and secrets out of the browser.
+- An isolated local document reader for searchable PDF, DOCX, TXT, and pasted text.
+- A central registry for one active Project Manager and future agent roles.
 - Claude-powered n8n AI Agent workflow.
 - A browser session identifier and basic conversation memory.
 - Local task storage.
@@ -51,8 +59,8 @@ Cloud deployment and external chat channels are explicitly deferred until the lo
 - Multi-user authentication and organisation accounts.
 - OAuth and third-party project-management credentials.
 - PostgreSQL, Redis, queue workers, or horizontal scaling.
-- Streaming responses, file uploads, RAG, or vector databases.
-- MCP, multiple agents, background autonomy, or scheduled writes.
+- Streaming responses, OCR, RAG, or vector databases.
+- MCP, multiple active production-ready agents, background autonomy, or scheduled writes.
 - Billing, subscriptions, custom domains, and production observability.
 
 ## 4. Target local architecture
@@ -60,9 +68,11 @@ Cloud deployment and external chat channels are explicitly deferred until the lo
 ```text
 Browser
   |
-  | POST /api/chat
+  +--> POST /api/documents --> Chat gateway --> Internal document reader
+  |
+  | POST /api/chat with server-owned document IDs
   v
-Chat gateway and static UI
+Reusable chat gateway and static UI
   |
   | POST /webhook/chat over the Docker network
   v
@@ -81,10 +91,13 @@ Chat gateway
 Browser
 ```
 
-The first Compose stack contains two services:
+The local Compose stack contains three services:
 
-1. `chat`: serves the chat interface and exposes the local `/api/chat` endpoint.
-2. `n8n`: provides the workflow editor, agent runtime, encrypted credentials, local SQLite persistence, and Data Tables.
+1. `chat`: serves the reusable interface, agent registry, document store, and
+   local API endpoints.
+2. `document-worker`: extracts bounded text on an internal-only Docker network.
+3. `n8n`: provides the workflow editor, agent runtime, encrypted credentials,
+   local SQLite persistence, and Data Tables.
 
 n8n data is stored in a named Docker volume. PostgreSQL is intentionally omitted from the first local release and introduced during production-readiness work.
 
@@ -95,7 +108,9 @@ n8n data is stored in a named Docker volume. PostgreSQL is intentionally omitted
 ```json
 {
   "sessionId": "5b8f0ce8-...",
-  "message": "Show me my open tasks"
+  "agentId": "project-manager",
+  "message": "Show me my open tasks",
+  "documentIds": []
 }
 ```
 

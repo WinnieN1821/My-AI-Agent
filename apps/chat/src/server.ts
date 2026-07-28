@@ -1,9 +1,12 @@
 import { fileURLToPath } from "node:url";
+import { loadAgentRegistry } from "./agents.js";
 import { createChatServer } from "./app.js";
+import { DocumentStore } from "./documents.js";
 
 const DEFAULT_PORT = 3_000;
-const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_UPSTREAM_URL = "http://n8n:5678/webhook/chat";
+const DEFAULT_DOCUMENT_WORKER_URL = "http://document-worker:3100";
 
 function positiveInteger(value: string | undefined, fallback: number): number {
   if (value === undefined) {
@@ -20,6 +23,13 @@ const timeoutMs = positiveInteger(
 );
 const upstreamUrl = process.env.N8N_CHAT_WEBHOOK_URL ?? DEFAULT_UPSTREAM_URL;
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
+const agentRegistryPath =
+  process.env.AGENT_REGISTRY_PATH ??
+  fileURLToPath(new URL("../config/agents.json", import.meta.url));
+const documentDirectory =
+  process.env.DOCUMENT_DATA_DIRECTORY ?? "/app/data/documents";
+const documentWorkerUrl =
+  process.env.DOCUMENT_WORKER_URL ?? DEFAULT_DOCUMENT_WORKER_URL;
 
 try {
   new URL(upstreamUrl);
@@ -28,7 +38,16 @@ try {
   process.exit(1);
 }
 
+const agents = await loadAgentRegistry(agentRegistryPath);
+const documentStore = new DocumentStore(
+  documentDirectory,
+  documentWorkerUrl,
+);
+await documentStore.cleanupExpired();
+
 const server = createChatServer({
+  agents,
+  documentStore,
   publicDirectory,
   upstreamUrl,
   timeoutMs,
@@ -37,6 +56,9 @@ const server = createChatServer({
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Chat gateway listening on http://0.0.0.0:${port}`);
+  console.log(
+    `Loaded ${agents.length} agent definitions; ${agents.filter((agent) => agent.status === "active").length} active.`,
+  );
 });
 
 function shutdown(signal: string): void {

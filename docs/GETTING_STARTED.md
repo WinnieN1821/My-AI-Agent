@@ -101,7 +101,7 @@ inside your cloned project folder, then allow it.
 
 The terminal window will:
 
-- check Docker and the two local ports;
+- check Docker and the two browser ports;
 - make a private encryption key;
 - download exact, versioned Docker images;
 - build the chat app;
@@ -198,6 +198,21 @@ You have succeeded when:
 
 ## Part 7 — make it yours
 
+Before customising, try the document path:
+
+1. Open [http://localhost:3000](http://localhost:3000).
+2. Select **Paste text** and paste at least a short paragraph of meeting notes,
+   or select **Upload file** and choose a searchable PDF, DOCX, or TXT file.
+3. Wait for the document chip to show its word count.
+4. Type:
+   `Give me a concise summary, confirmed decisions, action items with owners and due dates, risks, and open questions.`
+5. Select **Send**.
+
+The file itself stays in the local app. Extracted text is sent to Claude when
+you submit the request. Do not upload secrets you would not send to Anthropic.
+Image-only scanned PDFs are not supported in this version. The full limits and
+privacy behaviour are in [Use documents and long transcripts](DOCUMENT_UPLOADS.md).
+
 ### Change the interface
 
 Open `apps/chat/public/agent.config.js` in a plain text editor. Change only the
@@ -252,8 +267,9 @@ To return later:
 3. Open [http://localhost:3000](http://localhost:3000).
 
 Stopping preserves your local work. Reset is different: it permanently removes
-the local n8n account, credentials, workflows, tasks, and history. Do not run a
-reset unless you understand the [backup and recovery guide](LOCAL_OPERATIONS.md).
+the local n8n account, credentials, workflows, tasks, history, and extracted
+document context. Do not run a reset unless you understand the
+[backup and recovery guide](LOCAL_OPERATIONS.md).
 
 ## When something does not work
 

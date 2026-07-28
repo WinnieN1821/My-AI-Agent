@@ -16,7 +16,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 fi
 
 if [[ "${CONFIRMED}" != "true" ]]; then
-  printf 'This permanently removes local n8n users, credentials, workflows, and history.\n'
+  printf 'This permanently removes local n8n users, credentials, workflows, history, and extracted document context.\n'
   printf 'Create a backup first if any of that data matters.\n'
   read -r -p 'Type RESET to continue: ' ANSWER
   if [[ "${ANSWER}" != "RESET" ]]; then
@@ -31,5 +31,5 @@ docker compose \
   -f "${PROJECT_ROOT}/compose.yaml" \
   down --volumes --remove-orphans
 
-printf 'Local n8n data has been removed. The private .env file was preserved.\n'
+printf 'Local n8n and extracted document data have been removed. The private .env file was preserved.\n'
 printf 'Run ./start.command to create a fresh local instance.\n'

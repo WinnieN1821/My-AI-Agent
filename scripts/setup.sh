@@ -101,8 +101,8 @@ fi
 printf '\nDownloading the pinned local images...\n'
 compose pull n8n
 
-printf '\nBuilding the local chat app...\n'
-compose build chat
+printf '\nBuilding the local chat and document reader...\n'
+compose build chat document-worker
 
 printf '\nStarting AI Solopreneur...\n'
 compose up -d --wait --wait-timeout 240

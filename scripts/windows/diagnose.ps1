@@ -185,6 +185,13 @@ if ($failures -eq 0) {
     else {
         Add-Failure "The chat service is not running. Double-click start-windows.cmd, then rerun diagnostics."
     }
+
+    if (Test-ServiceRunning "document-worker") {
+        Write-Ok "Document reader container is running."
+    }
+    else {
+        Add-Failure "The document reader is not running. Double-click start-windows.cmd, then rerun diagnostics."
+    }
 }
 
 $chatPort = Get-EnvValue "CHAT_PORT" "3000"
@@ -202,6 +209,21 @@ if (Test-Endpoint "http://127.0.0.1:$chatPort/health") {
 }
 else {
     Add-Failure "The chat is not healthy at localhost:$chatPort."
+}
+
+try {
+    Invoke-Compose @(
+        "exec",
+        "-T",
+        "document-worker",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3100/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"
+    ) *> $null
+    Write-Ok "Document reader health endpoint responds."
+}
+catch {
+    Add-Failure "The internal document reader is not healthy."
 }
 
 try {

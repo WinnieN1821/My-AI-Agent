@@ -104,11 +104,11 @@ Open `00 - START HERE - Project Partner`. The sticky notes describe the read, pr
 | Part | What it does |
 | --- | --- |
 | **Chat Webhook** | Receives the private request from the chat gateway |
-| **Validate and Normalise** | Checks the session UUID, trims the message, and rejects empty or oversized input |
+| **Validate and Normalise** | Checks the session, agent, message, and bounded document context |
 | **Request Is Valid?** | Ensures only the valid branch can reach the agent |
 | **Route Confirmation** | Recognises only a complete `CONFIRM XXXXXXXX` message |
 | **Load Enabled Skills** | Reads the bundle compiled from `skills/enabled.txt` |
-| **Project Partner Agent** | Applies the assistant instructions and controls the number of model steps |
+| **Project Partner Agent** | Runs the Project Manager instructions and controls the number of model steps |
 | **Claude - Sonnet 4.6** | Calls Claude using the n8n credential |
 | **Conversation Memory** | Keeps six interactions for each browser session while n8n remains running |
 | **list_tasks** | Retrieves task facts through the reviewed read-only subworkflow |
@@ -129,8 +129,8 @@ Then:
 Keep the supplied safety and cost ceilings during the workshop:
 
 - 4 agent iterations.
-- 900 provider output tokens.
-- 50-second workflow timeout.
+- 2,200 provider output tokens.
+- 110-second workflow timeout.
 - 8,000-character response ceiling.
 - Streaming disabled for the synchronous chat contract.
 
@@ -155,7 +155,10 @@ This proves that n8n can run a published workflow. It deliberately does not call
 
 Double-click `diagnose.command` on macOS or `diagnose-windows.cmd` on Windows.
 
-The helper checks both services, the installed learner checklist, main workflow publication, the selected Anthropic credential, the credential-free validation path, and the health workflow. It never calls Claude or displays credential values.
+The helper checks the local services, the installed learner checklist, main
+workflow publication, the selected Anthropic credential, the credential-free
+validation path, and the health workflow. It never calls Claude or displays
+credential values.
 
 Resolve each yellow `[next]` line. Continue when it reports **All checks are green**.
 

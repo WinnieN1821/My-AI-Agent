@@ -9,6 +9,7 @@ METADATA_ONLY=false
 N8N_IMAGE="docker.n8n.io/n8nio/n8n:2.30.5@sha256:450853cd21a2ce36587c4c860eb26927c1ceba9496bf55f4c213b5d3a6dc8c6f"
 NODE_IMAGE="node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a"
 CHAT_IMAGE="ai-solopreneur-chat:${VERSION}"
+DOCUMENT_IMAGE="ai-solopreneur-document-worker:${VERSION}"
 
 usage() {
   printf 'Usage: ./scripts/prepare-instructor-pack.sh [--output DIRECTORY] [--metadata-only]\n'
@@ -95,6 +96,7 @@ cp "${PROJECT_ROOT}"/n8n/workflows/*.json "${PACK_DIR}/workflows/"
   printf 'n8n image: %s\n' "${N8N_IMAGE}"
   printf 'Node image: %s\n' "${NODE_IMAGE}"
   printf 'Chat image: %s\n' "${CHAT_IMAGE}"
+  printf 'Document reader image: %s\n' "${DOCUMENT_IMAGE}"
   printf 'Generated UTC: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 } >"${PACK_DIR}/RELEASE-METADATA.txt"
 
@@ -116,6 +118,7 @@ gunzip -c docker-images-${PLATFORM}.tar.gz | docker load
 
 - \`${N8N_IMAGE}\`
 - \`${CHAT_IMAGE}\`
+- \`${DOCUMENT_IMAGE}\`
 
 The archive reduces workshop downloads. Real Claude messages still require
 internet access and each learner's private Anthropic API key.
@@ -126,16 +129,20 @@ if [[ "${METADATA_ONLY}" == "false" ]]; then
   docker pull "${N8N_IMAGE}"
   docker pull "${NODE_IMAGE}"
 
-  printf 'Building the versioned chat image...\n'
+  printf 'Building the versioned local app images...\n'
   docker build \
     --tag "${CHAT_IMAGE}" \
     "${PROJECT_ROOT}/apps/chat"
+  docker build \
+    --tag "${DOCUMENT_IMAGE}" \
+    "${PROJECT_ROOT}/services/document-worker"
 
   printf 'Saving runtime images for %s...\n' "${PLATFORM}"
   docker image save \
     "${N8N_IMAGE}" \
     "${NODE_IMAGE}" \
-    "${CHAT_IMAGE}" |
+    "${CHAT_IMAGE}" \
+    "${DOCUMENT_IMAGE}" |
     gzip -9 >"${PACK_DIR}/docker-images-${PLATFORM}.tar.gz"
 
   git -C "${PROJECT_ROOT}" archive \

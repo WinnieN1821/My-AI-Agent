@@ -3,6 +3,17 @@
 All meaningful product changes are recorded here. This project uses semantic
 versioning for local workshop releases.
 
+## Unreleased
+
+### Added
+
+- Searchable PDF, DOCX, TXT, and long pasted-text context.
+- An isolated, internal-only document reader with bounded extraction.
+- A reusable agent registry with Project Manager active and four future roles.
+- A grounded meeting-analysis skill and document prompt-injection boundaries.
+- Beginner document guidance, agent-extension guidance, and document-aware
+  Docker and CI checks.
+
 ## 0.1.0 — 2026-07-27
 
 First complete local-first release candidate.
