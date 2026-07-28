@@ -14,6 +14,7 @@ In about 30 minutes you will have:
 - Your own browser chat.
 - A visual n8n agent you can inspect.
 - Claude connected through a private n8n credential.
+- PDF, DOCX, TXT, and long-transcript input.
 - Local project tasks and conversation memory.
 - Editable Markdown skills.
 - Confirmation-gated task creation and status changes.
@@ -59,7 +60,10 @@ If macOS blocks it, Control-click the file, choose **Open**, then confirm.
 
 Double-click `setup-windows.cmd`.
 
-Setup generates a private local encryption key, downloads the pinned images, builds the chat, starts both services, imports all reviewed workflows, creates three sample tasks, and loads the enabled skills. First setup can take several minutes.
+Setup generates a private local encryption key, downloads the pinned images,
+builds the chat and document reader, starts the local services, imports all
+reviewed workflows, creates three sample tasks, and loads the enabled skills.
+First setup can take several minutes.
 
 Success ends with:
 
@@ -126,6 +130,20 @@ For the third message, check the proposed fields and send the exact `CONFIRM XXX
 
 You now have a working local AI agent.
 
+### 8. Try a meeting transcript or document
+
+1. Select **Upload file** and choose a PDF, DOCX, or TXT file, or select
+   **Paste text** and add a transcript.
+2. Wait until the document appears below the buttons.
+3. Enter an instruction such as
+   `Summarise this meeting, separate decisions from ideas, and list action items with owners and due dates.`
+4. Select **Send**.
+
+The document is read locally. Its extracted text is sent to Claude with your
+instruction, so do not add secrets you would not send to the Anthropic API.
+Scanned image-only PDFs need OCR and are not supported yet. See
+[Use documents and long transcripts](docs/DOCUMENT_UPLOADS.md).
+
 ## Make it yours
 
 Start with two beginner-safe changes:
@@ -146,7 +164,8 @@ Before a workshop experiment or workflow edit, create a private backup:
 
 Backups contain encrypted credentials and the matching encryption key. They are ignored by Git and must stay private.
 
-Normal stop/start keeps data. Reset permanently removes local n8n accounts, credentials, workflows, and history:
+Normal stop/start keeps data. Reset permanently removes local n8n accounts,
+credentials, workflows, history, and extracted document context:
 
 - macOS: double-click `reset.command`.
 - Windows: double-click `reset-windows.cmd`.
@@ -155,17 +174,22 @@ Reset asks you to type `RESET`. The [operations and recovery guide](docs/LOCAL_O
 
 ## What is included
 
-- Docker Compose with pinned n8n and chat images.
-- A dependency-free TypeScript chat gateway and custom browser interface.
+- Docker Compose with pinned n8n, chat, and document-reader images.
+- A TypeScript chat gateway, custom browser interface, and isolated document reader.
 - Eleven reviewed n8n workflows, including the visual learner checklist.
 - Claude Sonnet integration with per-conversation local memory.
 - Four local Data Tables for tasks, audits, pending confirmations, and enabled skills.
-- Three editable Markdown skills.
+- Four editable Markdown skills, including grounded meeting analysis.
+- A central agent registry with Project Manager active and Sales, Marketing,
+  Investment, and Bookkeeping shown as coming soon.
+- Local extraction for searchable PDFs, DOCX, TXT, and pasted text.
 - Automatic reads and exact, expiring, single-use confirmation for writes.
 - Local diagnostics, backup, restore, reset, import, export, and skill-sync helpers.
 - macOS and Windows entry points.
 
-Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegram, email, external project-management accounts, multi-user authentication, RAG, queues, and autonomous background work.
+Deliberately deferred: OCR for scanned PDFs, cloud deployment, public access,
+Slack, WhatsApp, Telegram, email, external project-management accounts,
+multi-user authentication, RAG, queues, and autonomous background work.
 
 ## Guides
 
@@ -178,6 +202,7 @@ Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegra
 - [Connect the visual agent to Claude](docs/N8N_AGENT_SETUP.md)
 - [Customise the chat](docs/CUSTOMISE_CHAT.md)
 - [Customise Markdown skills](docs/CUSTOMISE_SKILLS.md)
+- [Use documents and long transcripts](docs/DOCUMENT_UPLOADS.md)
 - [Troubleshooting quick table](docs/TROUBLESHOOTING.md)
 
 ### Instructors
@@ -198,6 +223,7 @@ Deliberately deferred: cloud deployment, public access, Slack, WhatsApp, Telegra
 
 - [Product baseline](docs/PRODUCT_BASELINE.md)
 - [Chat API contract](docs/CHAT_CONTRACT.md)
+- [Add another agent or workflow](docs/ADD_AN_AGENT.md)
 - [Local task tools](docs/LOCAL_TASK_TOOLS.md)
 - [Safe write confirmation](docs/SAFE_WRITE_CONFIRMATION.md)
 - [n8n workflow exports](n8n/README.md)

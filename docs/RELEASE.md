@@ -19,11 +19,14 @@ Runtime and test images use versioned tags plus multi-platform manifest digests:
 | --- | --- |
 | n8n runtime | `docker.n8n.io/n8nio/n8n:2.30.5@sha256:450853cd21a2ce36587c4c860eb26927c1ceba9496bf55f4c213b5d3a6dc8c6f` |
 | Chat build/runtime and helpers | `node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a` |
+| Document-reader runtime | `node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a` |
 | Browser validation | `mcr.microsoft.com/playwright:v1.61.0-noble@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a` |
 
-JavaScript dependencies are locked by `apps/chat/package-lock.json` and
-`tests/phase7/package-lock.json`. The local chat image is named
-`ai-solopreneur-chat:0.1.0`.
+JavaScript dependencies are locked by `apps/chat/package-lock.json`,
+`services/document-worker/package-lock.json`, and
+`tests/phase7/package-lock.json`. The local images are named
+`ai-solopreneur-chat:0.1.0` and
+`ai-solopreneur-document-worker:0.1.0`.
 
 ## Owner release decision
 
@@ -50,7 +53,7 @@ The helper:
 
 1. validates the release metadata and workflows;
 2. pulls the locked images;
-3. builds the versioned chat image;
+3. builds the versioned chat and document-reader images;
 4. saves the runtime images for the current computer architecture;
 5. copies the canonical workflow exports;
 6. creates a source archive from the current Git commit;
@@ -71,7 +74,7 @@ Before the workshop:
 
 1. Copy the appropriate pack to the instructor machine.
 2. Follow `LOAD_IMAGES.md` inside the pack.
-3. Confirm `docker image ls` includes the n8n and versioned chat images.
+3. Confirm `docker image ls` includes the n8n, chat, and document-reader images.
 4. Give learners the source ZIP or the GitHub template.
 5. Internet is still required for real Claude calls.
 

@@ -91,11 +91,32 @@ const packageJson = JSON.parse(
 const packageLock = JSON.parse(
   await readFile(join(projectRoot, "apps/chat/package-lock.json"), "utf8"),
 );
+const documentPackageJson = JSON.parse(
+  await readFile(
+    join(projectRoot, "services/document-worker/package.json"),
+    "utf8",
+  ),
+);
+const documentPackageLock = JSON.parse(
+  await readFile(
+    join(projectRoot, "services/document-worker/package-lock.json"),
+    "utf8",
+  ),
+);
 check(packageJson.version === version, "Chat package version must match VERSION");
 check(packageLock.version === version, "Chat lockfile version must match VERSION");
 check(
   packageLock.packages?.[""]?.version === version,
   "Chat lockfile root package version must match VERSION",
+);
+check(
+  documentPackageJson.version === version,
+  "Document reader package version must match VERSION",
+);
+check(
+  documentPackageLock.version === version &&
+    documentPackageLock.packages?.[""]?.version === version,
+  "Document reader lockfile version must match VERSION",
 );
 
 const compose = await readFile(join(projectRoot, "compose.yaml"), "utf8");
@@ -103,6 +124,10 @@ check(compose.includes(n8nImage), "compose.yaml must use the locked n8n digest")
 check(
   compose.includes(`image: ai-solopreneur-chat:${version}`),
   "compose.yaml chat image must match VERSION",
+);
+check(
+  compose.includes(`image: ai-solopreneur-document-worker:${version}`),
+  "compose.yaml document reader image must match VERSION",
 );
 
 const chatDockerfile = await readFile(
@@ -112,6 +137,14 @@ const chatDockerfile = await readFile(
 check(
   chatDockerfile.split(nodeImage).length - 1 === 2,
   "Chat build and runtime stages must use the locked Node digest",
+);
+const documentDockerfile = await readFile(
+  join(projectRoot, "services/document-worker/Dockerfile"),
+  "utf8",
+);
+check(
+  documentDockerfile.split(nodeImage).length - 1 === 1,
+  "Document reader runtime must use the locked Node digest",
 );
 const browserDockerfile = await readFile(
   join(projectRoot, "tests/phase7/Dockerfile.browser"),

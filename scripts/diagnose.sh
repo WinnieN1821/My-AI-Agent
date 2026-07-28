@@ -130,6 +130,13 @@ else
   failure "The chat service is not running. Double-click start.command, then rerun diagnostics."
 fi
 
+if [[ "${FAILURES}" -eq 0 ]] && \
+  compose ps --status running --services 2>/dev/null | grep -qx document-worker; then
+  ok "Document reader container is running."
+else
+  failure "The document reader is not running. Double-click start.command, then rerun diagnostics."
+fi
+
 if command -v curl >/dev/null 2>&1 && \
   curl --fail --silent --show-error \
     "http://127.0.0.1:${N8N_PORT}/healthz" >/dev/null 2>&1; then
@@ -144,6 +151,14 @@ if command -v curl >/dev/null 2>&1 && \
   ok "Chat health endpoint responds."
 else
   failure "The chat is not healthy at localhost:${CHAT_PORT}."
+fi
+
+if [[ "${FAILURES}" -eq 0 ]] && compose exec -T document-worker node -e \
+  "fetch('http://127.0.0.1:3100/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))" \
+  >/dev/null 2>&1; then
+  ok "Document reader health endpoint responds."
+else
+  failure "The internal document reader is not healthy."
 fi
 
 if [[ "${N8N_RUNNING}" == "1" ]]; then

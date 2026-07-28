@@ -6,12 +6,15 @@ the shorter technical reference for the same setup.
 
 ## Outcome
 
-At the end of setup, two local services will be healthy:
+At the end of setup, three local services will be healthy:
 
 - The chat app at [http://localhost:3000](http://localhost:3000).
 - The n8n editor at [http://localhost:5678](http://localhost:5678).
+- The internal document reader, which has no browser address.
 
-The eleven reviewed workflows, three sample tasks, and enabled Markdown skills will also be installed automatically. Both services run in Docker. Nothing is published to the internet.
+The eleven reviewed workflows, three sample tasks, and enabled Markdown skills
+will also be installed automatically. All three services run in Docker. Nothing
+is published to the internet.
 
 ## Before starting
 
@@ -78,25 +81,28 @@ The script then:
 1. Validates Docker and Docker Compose.
 2. Validates the Compose configuration.
 3. Checks whether ports 3000 and 5678 are available.
-4. Pulls the pinned n8n image and builds the TypeScript chat image.
+4. Pulls the pinned n8n image and builds the chat and document-reader images.
 5. Starts n8n.
 6. Waits for n8n to become healthy.
-7. Starts the chat app.
+7. Starts the document reader and chat app.
 8. Imports the eleven reviewed workflows when they are not already installed.
 9. Creates the local tables and three missing sample tasks.
 10. Loads only the skills listed in `skills/enabled.txt`.
-11. Confirms both local health endpoints.
+11. Confirms the local services are healthy.
 
 On a later setup run, the learner-checklist workflow acts as the installation marker. Setup keeps existing workflow edits unchanged. Use the explicit workflow-import helper only when you deliberately want to refresh the reviewed workflows.
 
 ## Local-only networking
 
-Docker publishes both services to `127.0.0.1`:
+Docker publishes only the two browser-facing services to `127.0.0.1`:
 
 - `127.0.0.1:3000`
 - `127.0.0.1:5678`
 
 Other computers on the local network cannot connect through these port mappings. This is a local learning environment, not a public deployment.
+
+The document reader is available only to the chat container over an internal
+Docker network.
 
 ## Changing ports
 
@@ -127,7 +133,7 @@ The chat image compiles TypeScript during setup. Learners do not need to install
 Setup is successful only when:
 
 - The setup command exits successfully.
-- `docker compose ps` reports `chat` and `n8n` as healthy.
+- `docker compose ps` reports `chat`, `document-worker`, and `n8n` as healthy.
 - `http://localhost:3000/health` returns `{"status":"ok"}`.
 - `http://localhost:5678/healthz` returns a successful response.
 - Restarting the stack preserves the local n8n owner and saved settings.

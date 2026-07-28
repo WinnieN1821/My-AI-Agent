@@ -5,7 +5,7 @@ if (-not (Test-Path $script:EnvFile)) {
     exit 0
 }
 
-Write-Host "This permanently removes local n8n users, credentials, workflows, and history." -ForegroundColor Yellow
+Write-Host "This permanently removes local n8n users, credentials, workflows, history, and extracted document context." -ForegroundColor Yellow
 Write-Host "Create a backup first if any of that data matters."
 $answer = Read-Host "Type RESET to continue"
 if ($answer -ne "RESET") {
@@ -14,5 +14,5 @@ if ($answer -ne "RESET") {
 }
 
 Invoke-Compose @("down", "--volumes", "--remove-orphans")
-Write-Host "Local n8n data has been removed. The private .env file was preserved."
+Write-Host "Local n8n and extracted document data have been removed. The private .env file was preserved."
 Write-Host "Run start-windows.cmd to create a fresh local instance."

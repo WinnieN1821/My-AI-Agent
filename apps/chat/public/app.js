@@ -2,40 +2,96 @@
   "use strict";
 
   const DEFAULT_CONFIG = {
-    name: "Project Partner",
-    subtitle: "A calm co-pilot for turning ideas into next steps.",
+    name: "Project Manager",
+    subtitle:
+      "Turn meetings, documents, and project ideas into clear next actions.",
     welcomeMessage:
-      "Hello! I’m your project partner. Tell me what you’re working on, and we’ll turn it into clear, manageable next steps.",
+      "Hello! I’m your Project Manager. Add a meeting transcript or tell me what you’re working on, and I’ll help turn it into decisions, plans, and safe next actions.",
     primaryColour: "#6D4AFF",
     examplePrompts: [
-      "Help me decide the three most important things to do today",
-      "Turn my project idea into a one-week action plan",
-      "What questions should I answer before I start this project?",
+      "Turn these meeting notes into decisions and action items",
+      "Build a practical project plan from this document",
+      "Show me the highest-priority work in my local project",
     ],
   };
+  const DEFAULT_AGENTS = [
+    {
+      id: "project-manager",
+      name: "Project Manager",
+      description:
+        "Plans projects, analyses meetings, and turns decisions into safe next actions.",
+      status: "active",
+      examplePrompts: DEFAULT_CONFIG.examplePrompts,
+    },
+    {
+      id: "sales",
+      name: "Sales",
+      description: "Sales research, preparation, and follow-up workflows.",
+      status: "coming-soon",
+      examplePrompts: [],
+    },
+    {
+      id: "marketing",
+      name: "Marketing",
+      description: "Campaign planning, content, and marketing operations.",
+      status: "coming-soon",
+      examplePrompts: [],
+    },
+    {
+      id: "investment",
+      name: "Investment",
+      description: "Investment research, analysis, and decision preparation.",
+      status: "coming-soon",
+      examplePrompts: [],
+    },
+    {
+      id: "bookkeeping",
+      name: "Bookkeeping",
+      description: "Bookkeeping preparation, review, and reconciliation support.",
+      status: "coming-soon",
+      examplePrompts: [],
+    },
+  ];
   const STORAGE_KEY = "ai-solopreneur-chat-session";
+  const MAX_DOCUMENTS = 3;
+  const LARGE_PASTE_THRESHOLD = 4_000;
 
   const elements = {
     agentInitials: document.querySelector("#agent-initials"),
+    agentList: document.querySelector("#agent-list"),
     agentName: document.querySelector("#agent-name"),
     agentSubtitle: document.querySelector("#agent-subtitle"),
     characterCount: document.querySelector("#character-count"),
     conversation: document.querySelector("#conversation"),
     conversationAgentName: document.querySelector("#conversation-agent-name"),
+    documentList: document.querySelector("#document-list"),
+    documentStatus: document.querySelector("#document-status"),
+    fileInput: document.querySelector("#file-input"),
     form: document.querySelector("#chat-form"),
     input: document.querySelector("#message-input"),
     mobileAgentInitials: document.querySelector("#mobile-agent-initials"),
+    pasteButton: document.querySelector("#paste-button"),
+    pasteCancel: document.querySelector("#paste-cancel"),
+    pasteDialog: document.querySelector("#paste-dialog"),
+    pastedName: document.querySelector("#pasted-name"),
+    pastedText: document.querySelector("#pasted-text"),
+    pasteForm: document.querySelector("#paste-form"),
     requestStatus: document.querySelector("#request-status"),
     resetButton: document.querySelector("#reset-button"),
     sendButton: document.querySelector("#send-button"),
     sendButtonLabel: document.querySelector("#send-button-label"),
     suggestionList: document.querySelector("#suggestion-list"),
     suggestions: document.querySelector("#suggestions"),
+    uploadButton: document.querySelector("#upload-button"),
   };
 
   let sessionId = loadOrCreateSession();
   let requestInProgress = false;
+  let documentRequestInProgress = false;
   let loadingMessage = null;
+  let agents = DEFAULT_AGENTS;
+  let activeAgentId = "project-manager";
+  let uploadedDocuments = [];
 
   function cleanText(value, fallback, maximumLength) {
     if (typeof value !== "string") {
@@ -64,7 +120,11 @@
 
     return {
       name: cleanText(supplied.name, DEFAULT_CONFIG.name, 60),
-      subtitle: cleanText(supplied.subtitle, DEFAULT_CONFIG.subtitle, 160),
+      subtitle: cleanText(
+        supplied.subtitle,
+        DEFAULT_CONFIG.subtitle,
+        160,
+      ),
       welcomeMessage: cleanText(
         supplied.welcomeMessage,
         DEFAULT_CONFIG.welcomeMessage,
@@ -80,6 +140,20 @@
   }
 
   const config = loadConfig();
+
+  function activeAgent() {
+    return (
+      agents.find(
+        (agent) => agent.id === activeAgentId && agent.status === "active",
+      ) ?? agents.find((agent) => agent.status === "active")
+    );
+  }
+
+  function displayAgentName() {
+    return activeAgentId === "project-manager"
+      ? config.name
+      : activeAgent()?.name ?? config.name;
+  }
 
   function getInitials(name) {
     return name
@@ -122,20 +196,26 @@
     return freshSession;
   }
 
-  function applyConfig() {
-    document.title = `${config.name} · Local agent`;
+  function applyAgentIdentity() {
+    const name = displayAgentName();
+    const description =
+      activeAgentId === "project-manager"
+        ? config.subtitle
+        : activeAgent()?.description ?? config.subtitle;
+    document.title = `${name} · Local agent`;
     document.documentElement.style.setProperty(
       "--brand-primary",
       config.primaryColour,
     );
-    elements.agentName.textContent = config.name;
-    elements.agentSubtitle.textContent = config.subtitle;
-    elements.conversationAgentName.textContent = config.name;
+    elements.agentName.textContent = name;
+    elements.agentSubtitle.textContent = description;
+    elements.conversationAgentName.textContent = name;
+    elements.input.setAttribute("aria-label", `Message ${name}`);
+    elements.input.placeholder = `What should the ${name} do?`;
 
-    const initials = getInitials(config.name);
+    const initials = getInitials(name);
     elements.agentInitials.textContent = initials;
     elements.mobileAgentInitials.textContent = initials;
-    elements.input.setAttribute("aria-label", `Message ${config.name}`);
   }
 
   function scrollConversation() {
@@ -152,7 +232,8 @@
     const avatar = document.createElement("span");
     avatar.className = `message__avatar message__avatar--${kind}`;
     avatar.setAttribute("aria-hidden", "true");
-    avatar.textContent = kind === "agent" ? getInitials(config.name) : "You";
+    avatar.textContent =
+      kind === "agent" ? getInitials(displayAgentName()) : "You";
     return avatar;
   }
 
@@ -165,7 +246,7 @@
 
     const label = document.createElement("p");
     label.className = "message__label";
-    label.textContent = kind === "agent" ? config.name : "You";
+    label.textContent = kind === "agent" ? displayAgentName() : "You";
 
     const copy = document.createElement("p");
     copy.className = "message__copy";
@@ -187,7 +268,7 @@
 
     const label = document.createElement("p");
     label.className = "message__label";
-    label.textContent = config.name;
+    label.textContent = displayAgentName();
 
     const dots = document.createElement("span");
     dots.className = "thinking-dots";
@@ -198,7 +279,7 @@
 
     const accessibleText = document.createElement("span");
     accessibleText.className = "visually-hidden";
-    accessibleText.textContent = `${config.name} is thinking`;
+    accessibleText.textContent = `${displayAgentName()} is thinking`;
 
     body.append(label, dots, accessibleText);
     wrapper.append(createAvatar("agent"), body);
@@ -243,9 +324,114 @@
     scrollConversation();
   }
 
+  function friendlyError(errorBody, fallback) {
+    if (
+      typeof errorBody === "object" &&
+      errorBody !== null &&
+      typeof errorBody.error === "object" &&
+      errorBody.error !== null &&
+      typeof errorBody.error.message === "string"
+    ) {
+      return errorBody.error.message;
+    }
+    return fallback;
+  }
+
+  async function parseResponse(response, fallback) {
+    let body = null;
+    try {
+      body = await response.json();
+    } catch {
+      // Use the stable fallback below.
+    }
+    if (!response.ok) {
+      throw new Error(friendlyError(body, fallback));
+    }
+    return body;
+  }
+
+  async function loadAgents() {
+    try {
+      const response = await fetch("/api/agents", {
+        headers: { Accept: "application/json" },
+      });
+      const body = await parseResponse(
+        response,
+        "The local agent list could not be loaded.",
+      );
+      if (
+        body &&
+        Array.isArray(body.agents) &&
+        body.agents.some((agent) => agent?.status === "active")
+      ) {
+        agents = body.agents;
+        activeAgentId =
+          agents.find((agent) => agent.id === activeAgentId)?.status === "active"
+            ? activeAgentId
+            : agents.find((agent) => agent.status === "active").id;
+      }
+    } catch {
+      agents = DEFAULT_AGENTS;
+    }
+  }
+
+  function renderAgentList() {
+    elements.agentList.replaceChildren();
+    for (const agent of agents) {
+      const button = document.createElement("button");
+      button.className = "agent-button";
+      button.type = "button";
+      button.disabled =
+        agent.status !== "active" ||
+        requestInProgress ||
+        documentRequestInProgress;
+      button.setAttribute("role", "listitem");
+      button.setAttribute(
+        "aria-pressed",
+        String(agent.id === activeAgentId),
+      );
+
+      const name = document.createElement("span");
+      name.className = "agent-button__name";
+      name.textContent = agent.name;
+
+      const status = document.createElement("span");
+      status.className = "agent-button__status";
+      status.textContent =
+        agent.status === "active"
+          ? agent.id === activeAgentId
+            ? "Active"
+            : "Available"
+          : "Coming soon";
+
+      const description = document.createElement("span");
+      description.className = "agent-button__description";
+      description.textContent = agent.description;
+
+      button.append(name, status, description);
+      if (agent.status === "active") {
+        button.addEventListener("click", () => {
+          if (agent.id === activeAgentId) {
+            return;
+          }
+          activeAgentId = agent.id;
+          startNewConversation();
+          applyAgentIdentity();
+          renderAgentList();
+          renderSuggestions();
+        });
+      }
+      elements.agentList.append(button);
+    }
+  }
+
   function renderSuggestions() {
     elements.suggestionList.replaceChildren();
-    for (const prompt of config.examplePrompts) {
+    const selectedPrompts =
+      activeAgent()?.examplePrompts?.length > 0
+        ? activeAgent().examplePrompts
+        : config.examplePrompts;
+    for (const prompt of selectedPrompts.slice(0, 6)) {
       const button = document.createElement("button");
       button.className = "suggestion-button";
       button.type = "button";
@@ -254,6 +440,40 @@
         void sendMessage(prompt, true);
       });
       elements.suggestionList.append(button);
+    }
+  }
+
+  function renderDocuments() {
+    elements.documentList.replaceChildren();
+    for (const documentItem of uploadedDocuments) {
+      const chip = document.createElement("div");
+      chip.className = "document-chip";
+
+      const name = document.createElement("span");
+      name.className = "document-chip__name";
+      name.textContent = documentItem.name;
+      name.title = documentItem.name;
+
+      const metadata = document.createElement("span");
+      metadata.className = "document-chip__meta";
+      const pageText =
+        typeof documentItem.pageCount === "number"
+          ? ` · ${documentItem.pageCount} pages`
+          : "";
+      metadata.textContent = `${documentItem.wordCount.toLocaleString()} words${pageText}`;
+
+      const remove = document.createElement("button");
+      remove.className = "document-chip__remove";
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", `Remove ${documentItem.name}`);
+      remove.disabled = requestInProgress || documentRequestInProgress;
+      remove.addEventListener("click", () => {
+        void removeDocument(documentItem.id);
+      });
+
+      chip.append(name, metadata, remove);
+      elements.documentList.append(chip);
     }
   }
 
@@ -268,34 +488,144 @@
 
   function setBusy(isBusy) {
     requestInProgress = isBusy;
+    const controlsBusy = isBusy || documentRequestInProgress;
     elements.conversation.setAttribute("aria-busy", String(isBusy));
-    elements.input.disabled = isBusy;
-    elements.sendButton.disabled = isBusy;
-    elements.resetButton.disabled = isBusy;
+    elements.input.disabled = controlsBusy;
+    elements.sendButton.disabled = controlsBusy;
+    elements.resetButton.disabled = controlsBusy;
+    elements.uploadButton.disabled = controlsBusy;
+    elements.pasteButton.disabled = controlsBusy;
     for (const suggestion of elements.suggestionList.querySelectorAll("button")) {
-      suggestion.disabled = isBusy;
+      suggestion.disabled = controlsBusy;
     }
     elements.sendButtonLabel.textContent = isBusy ? "Working" : "Send";
     elements.requestStatus.textContent = isBusy
-      ? `${config.name} is working on your request…`
+      ? `${displayAgentName()} is working on your request…`
       : "Press Enter to send · Shift + Enter for a new line";
+    renderAgentList();
+    renderDocuments();
   }
 
-  function friendlyError(errorBody) {
-    if (
-      typeof errorBody === "object" &&
-      errorBody !== null &&
-      typeof errorBody.error === "object" &&
-      errorBody.error !== null &&
-      typeof errorBody.error.message === "string"
-    ) {
-      return errorBody.error.message;
+  function setDocumentBusy(isBusy, message = "") {
+    documentRequestInProgress = isBusy;
+    elements.documentStatus.textContent = message;
+    setBusy(requestInProgress);
+  }
+
+  async function uploadFile(file) {
+    if (uploadedDocuments.length >= MAX_DOCUMENTS) {
+      addError(`Add no more than ${MAX_DOCUMENTS} documents to one message.`);
+      return;
     }
-    return "The local agent could not reply. Check that n8n is running, then try again.";
+
+    setDocumentBusy(true, `Reading ${file.name}…`);
+    try {
+      const formData = new FormData();
+      formData.append("sessionId", sessionId);
+      formData.append("file", file);
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+      const body = await parseResponse(
+        response,
+        "The document could not be read.",
+      );
+      if (!body?.document?.id) {
+        throw new Error("The document reader returned an unexpected result.");
+      }
+      uploadedDocuments.push(body.document);
+      renderDocuments();
+      elements.documentStatus.textContent =
+        body.document.warnings?.length > 0
+          ? `Added ${body.document.name}. ${body.document.warnings[0]}`
+          : `Added ${body.document.name}.`;
+    } catch (error) {
+      elements.documentStatus.textContent = "";
+      addError(
+        error instanceof Error
+          ? error.message
+          : "The document could not be read.",
+      );
+    } finally {
+      documentRequestInProgress = false;
+      setBusy(requestInProgress);
+      elements.fileInput.value = "";
+    }
+  }
+
+  async function uploadPastedText(name, text) {
+    if (uploadedDocuments.length >= MAX_DOCUMENTS) {
+      addError(`Add no more than ${MAX_DOCUMENTS} documents to one message.`);
+      return false;
+    }
+
+    setDocumentBusy(true, "Preparing pasted text…");
+    try {
+      const response = await fetch("/api/documents/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, name, text }),
+      });
+      const body = await parseResponse(
+        response,
+        "The pasted text could not be prepared.",
+      );
+      if (!body?.document?.id) {
+        throw new Error("The document reader returned an unexpected result.");
+      }
+      uploadedDocuments.push(body.document);
+      renderDocuments();
+      elements.documentStatus.textContent = `Added ${body.document.name}.`;
+      return true;
+    } catch (error) {
+      elements.documentStatus.textContent = "";
+      addError(
+        error instanceof Error
+          ? error.message
+          : "The pasted text could not be prepared.",
+      );
+      return false;
+    } finally {
+      documentRequestInProgress = false;
+      setBusy(requestInProgress);
+    }
+  }
+
+  async function removeDocument(id) {
+    const documentItem = uploadedDocuments.find((item) => item.id === id);
+    if (!documentItem) {
+      return;
+    }
+
+    setDocumentBusy(true, `Removing ${documentItem.name}…`);
+    try {
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(id)}?sessionId=${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok && response.status !== 404) {
+        const body = await response.json().catch(() => null);
+        throw new Error(
+          friendlyError(body, "The document could not be removed."),
+        );
+      }
+      uploadedDocuments = uploadedDocuments.filter((item) => item.id !== id);
+      elements.documentStatus.textContent = `Removed ${documentItem.name}.`;
+    } catch (error) {
+      addError(
+        error instanceof Error
+          ? error.message
+          : "The document could not be removed.",
+      );
+    } finally {
+      documentRequestInProgress = false;
+      setBusy(requestInProgress);
+    }
   }
 
   async function sendMessage(rawMessage, showUserMessage) {
-    if (requestInProgress) {
+    if (requestInProgress || documentRequestInProgress) {
       return;
     }
 
@@ -306,7 +636,13 @@
     }
 
     if (showUserMessage) {
-      addMessage("user", message);
+      const attachmentNames = uploadedDocuments.map((item) => item.name);
+      addMessage(
+        "user",
+        attachmentNames.length > 0
+          ? `${message}\n\nAttached context: ${attachmentNames.join(", ")}`
+          : message,
+      );
     }
     elements.suggestions.hidden = true;
     elements.input.value = "";
@@ -319,19 +655,18 @@
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message }),
+        body: JSON.stringify({
+          sessionId,
+          agentId: activeAgentId,
+          message,
+          documentIds: uploadedDocuments.map((item) => item.id),
+        }),
       });
 
-      let responseBody = null;
-      try {
-        responseBody = await response.json();
-      } catch {
-        // A stable fallback is shown below.
-      }
-
-      if (!response.ok) {
-        throw new Error(friendlyError(responseBody));
-      }
+      const responseBody = await parseResponse(
+        response,
+        "The local agent could not reply. Check that n8n is running, then try again.",
+      );
       if (
         typeof responseBody !== "object" ||
         responseBody === null ||
@@ -350,11 +685,12 @@
     } catch (error) {
       loadingMessage?.remove();
       loadingMessage = null;
-      const messageText =
+      addError(
         error instanceof Error
           ? error.message
-          : "The local agent could not reply. Check n8n and try again.";
-      addError(messageText, message);
+          : "The local agent could not reply. Check n8n and try again.",
+        message,
+      );
     } finally {
       setBusy(false);
       elements.input.focus();
@@ -363,16 +699,36 @@
 
   function updateCharacterCount() {
     const length = elements.input.value.length;
-    elements.characterCount.textContent = `${length} / 4000`;
+    elements.characterCount.textContent = `${length} / 8000`;
     elements.characterCount.classList.toggle(
       "character-count--near-limit",
-      length >= 3_600,
+      length >= 7_200,
     );
   }
 
   function resizeInput() {
     elements.input.style.height = "auto";
     elements.input.style.height = `${Math.min(elements.input.scrollHeight, 160)}px`;
+  }
+
+  function startNewConversation() {
+    const previousSessionId = sessionId;
+    const previousDocuments = uploadedDocuments;
+    sessionId = createSessionId();
+    storeSession(sessionId);
+    uploadedDocuments = [];
+    renderDocuments();
+    elements.documentStatus.textContent = "";
+    renderNewConversation();
+    elements.requestStatus.textContent = "New conversation started";
+    elements.input.focus();
+
+    for (const documentItem of previousDocuments) {
+      void fetch(
+        `/api/documents/${encodeURIComponent(documentItem.id)}?sessionId=${encodeURIComponent(previousSessionId)}`,
+        { method: "DELETE" },
+      );
+    }
   }
 
   elements.form.addEventListener("submit", (event) => {
@@ -383,6 +739,22 @@
   elements.input.addEventListener("input", () => {
     updateCharacterCount();
     resizeInput();
+  });
+
+  elements.input.addEventListener("paste", (event) => {
+    const pastedText = event.clipboardData?.getData("text") ?? "";
+    if (
+      pastedText.length > LARGE_PASTE_THRESHOLD ||
+      elements.input.value.length + pastedText.length > 8_000
+    ) {
+      event.preventDefault();
+      void uploadPastedText("Pasted transcript", pastedText).then((added) => {
+        if (added) {
+          elements.documentStatus.textContent =
+            "Large pasted text was added as document context. Add an instruction below.";
+        }
+      });
+    }
   });
 
   elements.input.addEventListener("keydown", (event) => {
@@ -396,15 +768,50 @@
     }
   });
 
-  elements.resetButton.addEventListener("click", () => {
-    sessionId = createSessionId();
-    storeSession(sessionId);
-    renderNewConversation();
-    elements.requestStatus.textContent = "New conversation started";
-    elements.input.focus();
+  elements.uploadButton.addEventListener("click", () => {
+    elements.fileInput.click();
   });
 
-  applyConfig();
-  renderSuggestions();
-  renderNewConversation();
+  elements.fileInput.addEventListener("change", () => {
+    const file = elements.fileInput.files?.[0];
+    if (file) {
+      void uploadFile(file);
+    }
+  });
+
+  elements.pasteButton.addEventListener("click", () => {
+    elements.pastedName.value = "Pasted transcript";
+    elements.pastedText.value = "";
+    elements.pasteDialog.showModal();
+    elements.pastedText.focus();
+  });
+
+  elements.pasteCancel.addEventListener("click", () => {
+    elements.pasteDialog.close();
+  });
+
+  elements.pasteForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = elements.pastedName.value;
+    const text = elements.pastedText.value;
+    void uploadPastedText(name, text).then((added) => {
+      if (added) {
+        elements.pasteDialog.close();
+        elements.input.focus();
+      }
+    });
+  });
+
+  elements.resetButton.addEventListener("click", startNewConversation);
+
+  async function initialise() {
+    await loadAgents();
+    applyAgentIdentity();
+    renderAgentList();
+    renderSuggestions();
+    renderDocuments();
+    renderNewConversation();
+  }
+
+  void initialise();
 })();

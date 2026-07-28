@@ -114,8 +114,8 @@ else {
 Write-Host "`nDownloading the pinned local images..."
 Invoke-Compose @("pull", "n8n")
 
-Write-Host "`nBuilding the local chat app..."
-Invoke-Compose @("build", "chat")
+Write-Host "`nBuilding the local chat and document reader..."
+Invoke-Compose @("build", "chat", "document-worker")
 
 Write-Host "`nStarting AI Solopreneur..."
 Invoke-Compose @("up", "-d", "--wait", "--wait-timeout", "240")
