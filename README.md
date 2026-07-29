@@ -132,12 +132,16 @@ You now have a working local AI agent.
 
 ### 8. Try a meeting transcript or document
 
-1. Select **Upload file** and choose a PDF, DOCX, or TXT file, or select
-   **Paste text** and add a transcript.
-2. Wait until the document appears below the buttons.
+1. Select the **+** inside the message box, then choose **Upload a file** and
+   select a PDF, DOCX, or TXT file, or choose **Paste long text** and add a
+   transcript.
+2. Wait until the document appears as a removable chip inside the message box.
 3. Enter an instruction such as
    `Summarise this meeting, separate decisions from ideas, and list action items with owners and due dates.`
 4. Select **Send**.
+
+The chip leaves the message box when sent and appears above your message in the
+conversation, so it is always clear which file the agent received.
 
 The document is read locally. Its extracted text is sent to Claude with your
 instruction, so do not add secrets you would not send to the Anthropic API.

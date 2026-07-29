@@ -91,61 +91,117 @@
             <div class="suggestion-list" id="suggestion-list"></div>
           </section>
 
-          <section
-            class="document-context"
-            id="document-context"
-            aria-labelledby="document-context-title"
-          >
-            <div class="document-context__header">
-              <div>
-                <p class="section-label" id="document-context-title">
-                  Meeting notes and documents
-                </p>
-                <p class="document-context__hint">
-                  Add PDF, DOCX, TXT, or paste a long transcript to your next
-                  message. Avoid secrets you would not send to Claude.
-                </p>
-              </div>
-              <div class="document-actions">
-                <button class="secondary-button" id="upload-button" type="button">
-                  Upload file
-                </button>
-                <button class="secondary-button" id="paste-button" type="button">
-                  Paste text
-                </button>
-              </div>
-            </div>
-            <input
-              id="file-input"
-              type="file"
-              accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              hidden
-            />
-            <div
-              class="document-list"
-              id="document-list"
-              aria-live="polite"
-            ></div>
-            <p class="document-status" id="document-status" role="status"></p>
-          </section>
-
           <form class="composer" id="chat-form">
             <label class="visually-hidden" for="message-input">
               Message your project manager
             </label>
             <div class="composer__field">
+              <div
+                class="document-list"
+                id="document-list"
+                aria-label="Attachments for the next message"
+                aria-live="polite"
+              ></div>
               <textarea
                 id="message-input"
                 name="message"
-                rows="1"
+                rows="2"
                 maxlength="8000"
                 placeholder="What should the Project Manager do?"
                 autocomplete="off"
                 required
               ></textarea>
-              <span class="character-count" id="character-count" aria-hidden="true">
-                0 / 8000
-              </span>
+              <div class="composer__toolbar">
+                <div class="attachment-picker">
+                  <button
+                    class="attachment-button"
+                    id="attachment-menu-button"
+                    type="button"
+                    aria-label="Add an attachment"
+                    aria-haspopup="menu"
+                    aria-controls="attachment-menu"
+                    aria-expanded="false"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M12 5v14M5 12h14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-width="1.8"
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    class="attachment-menu"
+                    id="attachment-menu"
+                    role="menu"
+                    aria-label="Add context"
+                    hidden
+                  >
+                    <button
+                      class="attachment-menu__item"
+                      id="upload-button"
+                      type="button"
+                      role="menuitem"
+                    >
+                      <span class="attachment-menu__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path
+                            d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Zm0 0v5h5M9 14h6m-6 3h4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.7"
+                          />
+                        </svg>
+                      </span>
+                      <span>
+                        <strong>Upload a file</strong>
+                        <small>PDF, DOCX or TXT</small>
+                      </span>
+                    </button>
+                    <button
+                      class="attachment-menu__item"
+                      id="paste-button"
+                      type="button"
+                      role="menuitem"
+                    >
+                      <span class="attachment-menu__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path
+                            d="M9 5h6m-7 2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2m3-9v6m-3-3h6M9 3h6v4H9V3Z"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1.7"
+                          />
+                        </svg>
+                      </span>
+                      <span>
+                        <strong>Paste long text</strong>
+                        <small>Transcript or meeting notes</small>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                <p class="document-status" id="document-status" role="status"></p>
+                <span
+                  class="character-count"
+                  id="character-count"
+                  aria-hidden="true"
+                >
+                  0 / 8000
+                </span>
+              </div>
+              <input
+                id="file-input"
+                type="file"
+                accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                hidden
+              />
             </div>
             <button class="send-button" id="send-button" type="submit">
               <span id="send-button-label">Send</span>

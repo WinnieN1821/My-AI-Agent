@@ -7,11 +7,15 @@ long text that would be awkward to fit in the normal message box.
 ## Add a file
 
 1. Open [http://localhost:3000](http://localhost:3000).
-2. Select **Upload file**.
+2. Select the **+** inside the message box, then select **Upload a file**.
 3. Choose one searchable PDF, Word `.docx`, or plain-text `.txt` file.
-4. Wait for a document chip with its name and word count.
+4. Wait for a removable document chip with its name and word count to appear
+   inside the message box.
 5. Enter a clear instruction in the message box.
 6. Select **Send**.
+
+After sending, the chip clears from the message box and a file preview appears
+above the sent instruction in the conversation.
 
 You can attach up to three documents to one request. Each uploaded file can be
 up to 20 MB. Extracted text is limited to 150,000 characters per document and
@@ -22,8 +26,8 @@ password-protected files are not accepted.
 
 ## Paste a long transcript
 
-Select **Paste text**, give the text a useful name, paste up to 150,000
-characters, then select **Add context**.
+Select the **+** inside the message box, choose **Paste long text**, give the
+text a useful name, paste up to 150,000 characters, then select **Add context**.
 
 You can also paste directly into the normal message box. If the pasted section
 is longer than 4,000 characters, the interface automatically prepares it as

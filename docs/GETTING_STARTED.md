@@ -201,9 +201,11 @@ You have succeeded when:
 Before customising, try the document path:
 
 1. Open [http://localhost:3000](http://localhost:3000).
-2. Select **Paste text** and paste at least a short paragraph of meeting notes,
-   or select **Upload file** and choose a searchable PDF, DOCX, or TXT file.
-3. Wait for the document chip to show its word count.
+2. Select the **+** inside the message box, then choose **Paste long text** and
+   paste at least a short paragraph of meeting notes, or choose
+   **Upload a file** and select a searchable PDF, DOCX, or TXT file.
+3. Wait for the removable document chip to appear inside the message box and
+   show its word count.
 4. Type:
    `Give me a concise summary, confirmed decisions, action items with owners and due dates, risks, and open questions.`
 5. Select **Send**.

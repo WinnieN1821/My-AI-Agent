@@ -61,6 +61,8 @@
     agentList: document.querySelector("#agent-list"),
     agentName: document.querySelector("#agent-name"),
     agentSubtitle: document.querySelector("#agent-subtitle"),
+    attachmentMenu: document.querySelector("#attachment-menu"),
+    attachmentMenuButton: document.querySelector("#attachment-menu-button"),
     characterCount: document.querySelector("#character-count"),
     conversation: document.querySelector("#conversation"),
     conversationAgentName: document.querySelector("#conversation-agent-name"),
@@ -554,10 +556,14 @@
   function setBusy(isBusy) {
     requestInProgress = isBusy;
     const controlsBusy = isBusy || documentRequestInProgress;
+    if (controlsBusy) {
+      setAttachmentMenuOpen(false);
+    }
     elements.conversation.setAttribute("aria-busy", String(isBusy));
     elements.input.disabled = controlsBusy;
     elements.sendButton.disabled = controlsBusy;
     elements.resetButton.disabled = controlsBusy;
+    elements.attachmentMenuButton.disabled = controlsBusy;
     elements.uploadButton.disabled = controlsBusy;
     elements.pasteButton.disabled = controlsBusy;
     for (const suggestion of elements.suggestionList.querySelectorAll("button")) {
@@ -575,6 +581,17 @@
     documentRequestInProgress = isBusy;
     elements.documentStatus.textContent = message;
     setBusy(requestInProgress);
+  }
+
+  function setAttachmentMenuOpen(isOpen) {
+    elements.attachmentMenu.hidden = !isOpen;
+    elements.attachmentMenuButton.setAttribute(
+      "aria-expanded",
+      String(isOpen),
+    );
+    if (isOpen) {
+      elements.uploadButton.focus();
+    }
   }
 
   async function uploadFile(file) {
@@ -604,8 +621,8 @@
       renderDocuments();
       elements.documentStatus.textContent =
         body.document.warnings?.length > 0
-          ? `Added ${body.document.name}. ${body.document.warnings[0]}`
-          : `Added ${body.document.name}.`;
+          ? body.document.warnings[0]
+          : "";
     } catch (error) {
       elements.documentStatus.textContent = "";
       addError(
@@ -643,7 +660,7 @@
       uploadedDocuments.push(body.document);
       sessionDocuments.push(body.document);
       renderDocuments();
-      elements.documentStatus.textContent = `Added ${body.document.name}.`;
+      elements.documentStatus.textContent = "";
       return true;
     } catch (error) {
       elements.documentStatus.textContent = "";
@@ -679,7 +696,7 @@
       }
       uploadedDocuments = uploadedDocuments.filter((item) => item.id !== id);
       sessionDocuments = sessionDocuments.filter((item) => item.id !== id);
-      elements.documentStatus.textContent = `Removed ${documentItem.name}.`;
+      elements.documentStatus.textContent = "";
     } catch (error) {
       addError(
         error instanceof Error
@@ -799,6 +816,7 @@
     elements.pastedName.value = "";
     elements.pastedText.value = "";
     elements.documentStatus.textContent = "";
+    setAttachmentMenuOpen(false);
     renderNewConversation();
     elements.requestStatus.textContent = "New conversation started";
     elements.input.focus();
@@ -848,7 +866,12 @@
     }
   });
 
+  elements.attachmentMenuButton.addEventListener("click", () => {
+    setAttachmentMenuOpen(elements.attachmentMenu.hidden);
+  });
+
   elements.uploadButton.addEventListener("click", () => {
+    setAttachmentMenuOpen(false);
     elements.fileInput.click();
   });
 
@@ -860,6 +883,7 @@
   });
 
   elements.pasteButton.addEventListener("click", () => {
+    setAttachmentMenuOpen(false);
     elements.pastedName.value = "Pasted transcript";
     elements.pastedText.value = "";
     elements.pasteDialog.showModal();
@@ -868,6 +892,24 @@
 
   elements.pasteCancel.addEventListener("click", () => {
     elements.pasteDialog.close();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !elements.attachmentMenu.hidden &&
+      !elements.attachmentMenu.contains(event.target) &&
+      !elements.attachmentMenuButton.contains(event.target)
+    ) {
+      setAttachmentMenuOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.attachmentMenu.hidden) {
+      event.preventDefault();
+      setAttachmentMenuOpen(false);
+      elements.attachmentMenuButton.focus();
+    }
   });
 
   elements.pasteForm.addEventListener("submit", (event) => {
