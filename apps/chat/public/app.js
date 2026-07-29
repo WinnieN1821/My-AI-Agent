@@ -92,6 +92,7 @@
   let agents = DEFAULT_AGENTS;
   let activeAgentId = "project-manager";
   let uploadedDocuments = [];
+  let sessionDocuments = [];
 
   function cleanText(value, fallback, maximumLength) {
     if (typeof value !== "string") {
@@ -237,7 +238,65 @@
     return avatar;
   }
 
-  function addMessage(kind, text) {
+  function documentMetadata(documentItem) {
+    const pageText =
+      typeof documentItem.pageCount === "number"
+        ? ` · ${documentItem.pageCount} pages`
+        : "";
+    return `${documentItem.wordCount.toLocaleString()} words${pageText}`;
+  }
+
+  function documentTypeLabel(documentItem) {
+    if (documentItem.type === "pasted-text") {
+      return "TEXT";
+    }
+    return String(documentItem.type || "FILE").toUpperCase().slice(0, 5);
+  }
+
+  function createSentAttachment(documentItem) {
+    const attachment = document.createElement("div");
+    attachment.className = "sent-attachment";
+    attachment.setAttribute(
+      "aria-label",
+      `Attached ${documentItem.name}, ${documentMetadata(documentItem)}`,
+    );
+
+    const preview = document.createElement("span");
+    preview.className = `sent-attachment__preview sent-attachment__preview--${documentItem.type}`;
+    preview.setAttribute("aria-hidden", "true");
+
+    const pageFold = document.createElement("span");
+    pageFold.className = "sent-attachment__fold";
+
+    const previewLines = document.createElement("span");
+    previewLines.className = "sent-attachment__lines";
+    for (let index = 0; index < 3; index += 1) {
+      previewLines.append(document.createElement("span"));
+    }
+
+    const type = document.createElement("span");
+    type.className = "sent-attachment__type";
+    type.textContent = documentTypeLabel(documentItem);
+    preview.append(pageFold, previewLines, type);
+
+    const details = document.createElement("span");
+    details.className = "sent-attachment__details";
+
+    const name = document.createElement("span");
+    name.className = "sent-attachment__name";
+    name.textContent = documentItem.name;
+    name.title = documentItem.name;
+
+    const metadata = document.createElement("span");
+    metadata.className = "sent-attachment__meta";
+    metadata.textContent = documentMetadata(documentItem);
+
+    details.append(name, metadata);
+    attachment.append(preview, details);
+    return attachment;
+  }
+
+  function addMessage(kind, text, attachments = []) {
     const wrapper = document.createElement("article");
     wrapper.className = `message message--${kind}`;
 
@@ -252,7 +311,17 @@
     copy.className = "message__copy";
     copy.textContent = text;
 
-    body.append(label, copy);
+    body.append(label);
+    if (kind === "user" && attachments.length > 0) {
+      const attachmentList = document.createElement("div");
+      attachmentList.className = "message__attachments";
+      attachmentList.setAttribute("aria-label", "Sent attachments");
+      for (const documentItem of attachments) {
+        attachmentList.append(createSentAttachment(documentItem));
+      }
+      body.append(attachmentList);
+    }
+    body.append(copy);
     wrapper.append(createAvatar(kind), body);
     elements.conversation.append(wrapper);
     scrollConversation();
@@ -288,7 +357,7 @@
     return wrapper;
   }
 
-  function addError(message, retryMessage) {
+  function addError(message, retryRequest) {
     const alert = document.createElement("div");
     alert.className = "chat-error";
     alert.setAttribute("role", "alert");
@@ -307,14 +376,14 @@
     detail.textContent = message;
     content.append(title, detail);
 
-    if (retryMessage) {
+    if (retryRequest) {
       const retry = document.createElement("button");
       retry.className = "retry-button";
       retry.type = "button";
       retry.textContent = "Try again";
       retry.addEventListener("click", () => {
         alert.remove();
-        void sendMessage(retryMessage, false);
+        void sendMessage(retryRequest.message, false, retryRequest.documents);
       });
       content.append(retry);
     }
@@ -456,11 +525,7 @@
 
       const metadata = document.createElement("span");
       metadata.className = "document-chip__meta";
-      const pageText =
-        typeof documentItem.pageCount === "number"
-          ? ` · ${documentItem.pageCount} pages`
-          : "";
-      metadata.textContent = `${documentItem.wordCount.toLocaleString()} words${pageText}`;
+      metadata.textContent = documentMetadata(documentItem);
 
       const remove = document.createElement("button");
       remove.className = "document-chip__remove";
@@ -535,6 +600,7 @@
         throw new Error("The document reader returned an unexpected result.");
       }
       uploadedDocuments.push(body.document);
+      sessionDocuments.push(body.document);
       renderDocuments();
       elements.documentStatus.textContent =
         body.document.warnings?.length > 0
@@ -575,6 +641,7 @@
         throw new Error("The document reader returned an unexpected result.");
       }
       uploadedDocuments.push(body.document);
+      sessionDocuments.push(body.document);
       renderDocuments();
       elements.documentStatus.textContent = `Added ${body.document.name}.`;
       return true;
@@ -611,6 +678,7 @@
         );
       }
       uploadedDocuments = uploadedDocuments.filter((item) => item.id !== id);
+      sessionDocuments = sessionDocuments.filter((item) => item.id !== id);
       elements.documentStatus.textContent = `Removed ${documentItem.name}.`;
     } catch (error) {
       addError(
@@ -624,7 +692,11 @@
     }
   }
 
-  async function sendMessage(rawMessage, showUserMessage) {
+  async function sendMessage(
+    rawMessage,
+    showUserMessage,
+    retryDocuments,
+  ) {
     if (requestInProgress || documentRequestInProgress) {
       return;
     }
@@ -635,14 +707,18 @@
       return;
     }
 
+    const requestDocuments = Array.isArray(retryDocuments)
+      ? retryDocuments
+      : [...uploadedDocuments];
+
     if (showUserMessage) {
-      const attachmentNames = uploadedDocuments.map((item) => item.name);
-      addMessage(
-        "user",
-        attachmentNames.length > 0
-          ? `${message}\n\nAttached context: ${attachmentNames.join(", ")}`
-          : message,
-      );
+      addMessage("user", message, requestDocuments);
+      uploadedDocuments = [];
+      elements.fileInput.value = "";
+      elements.pastedName.value = "";
+      elements.pastedText.value = "";
+      elements.documentStatus.textContent = "";
+      renderDocuments();
     }
     elements.suggestions.hidden = true;
     elements.input.value = "";
@@ -659,7 +735,7 @@
           sessionId,
           agentId: activeAgentId,
           message,
-          documentIds: uploadedDocuments.map((item) => item.id),
+          documentIds: requestDocuments.map((item) => item.id),
         }),
       });
 
@@ -689,7 +765,7 @@
         error instanceof Error
           ? error.message
           : "The local agent could not reply. Check n8n and try again.",
-        message,
+        { message, documents: requestDocuments },
       );
     } finally {
       setBusy(false);
@@ -713,11 +789,15 @@
 
   function startNewConversation() {
     const previousSessionId = sessionId;
-    const previousDocuments = uploadedDocuments;
+    const previousDocuments = sessionDocuments;
     sessionId = createSessionId();
     storeSession(sessionId);
     uploadedDocuments = [];
+    sessionDocuments = [];
     renderDocuments();
+    elements.fileInput.value = "";
+    elements.pastedName.value = "";
+    elements.pastedText.value = "";
     elements.documentStatus.textContent = "";
     renderNewConversation();
     elements.requestStatus.textContent = "New conversation started";
