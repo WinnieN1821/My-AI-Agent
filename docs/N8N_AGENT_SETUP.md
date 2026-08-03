@@ -244,25 +244,10 @@ Validate workflow structure without starting n8n:
 node scripts/validate-workflows.mjs
 ```
 
-Run the complete isolated native agent smoke test:
-
-```bash
-./scripts/test-phase5.sh
-```
-
-It creates a temporary project copy and local Anthropic mock. It proves imports,
-publication, invalid-input blocking, browser-to-agent behavior, task reads,
-idempotent writes, enabled-only skill loading, exact session binding, expiry,
-supersession, single use, simultaneous retry protection, and the absence of
-destructive tools without consuming API credit.
-
-Run the Phase 6 beginner-package smoke test:
-
-```bash
-./scripts/test-phase6.sh
-```
-
-It creates a fresh template-style copy and proves one-click setup, automatic import, repeatable fallback import, preservation of local workflow edits, both diagnostic states, and backup/reset/restore.
+After validation, use a throwaway local conversation to manually check the
+workflow path you changed. For a write path, verify that the agent proposes the
+exact action, rejects plain `yes`, accepts only the generated confirmation code,
+and performs the action once.
 
 Export timestamped copies of visually edited workflows:
 

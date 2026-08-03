@@ -272,17 +272,12 @@ by the learner helpers:
 ```bash
 node scripts/validate-workflows.mjs
 
-./scripts/test-phase5.sh
-./scripts/test-phase6.sh
-./scripts/test-phase7.sh
-./scripts/test-phase8.sh
-
 # The evaluator remains NO_GO because the owner waived, rather than fabricated,
 # the planned human pilot.
 ./scripts/evaluate-pilot.sh
 ```
 
-The maintenance helpers are also available directly: `node scripts/local.mjs help` lists setup, start, stop, status, logs, diagnose, and the import, export, backup, restore, and reset commands. Contributor and CI smoke tests use isolated native project copies and local mock services.
+The maintenance helpers are also available directly: `node scripts/local.mjs help` lists setup, start, stop, status, logs, diagnose, and the import, export, backup, restore, and reset commands. The repository does not currently include an automated test or CI/CD suite; contributors should validate workflow structure and manually exercise the affected learner path before sharing a change.
 
 ## Current milestone
 

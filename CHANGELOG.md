@@ -23,6 +23,15 @@ versioning for local workshop releases.
   gateway and no longer uses process-local Simple Memory.
 - Backups explicitly contain plaintext chat transcripts in addition to
   encrypted n8n credentials and settings.
+- The Anthropic mock used before removal was corrected to distinguish the
+  current instruction from restored conversation history; the previously
+  failing native agent CI step passed after the fix.
+
+### Removed
+
+- GitHub Actions CI/CD, automated test directories, smoke-test scripts, and
+  package test commands, at the repository owner's direction after the
+  persistence fix was confirmed.
 
 ## 0.2.0 — 2026-07-29
 
