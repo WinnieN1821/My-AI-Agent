@@ -19,6 +19,7 @@ const requiredFiles = [
   "package.json",
   "package-lock.json",
   "scripts/local.mjs",
+  "scripts/inspect-chat-history.mjs",
   "scripts/node-runtime.sh",
   "scripts/run-local.sh",
   "scripts/windows/NodeRuntime.ps1",
@@ -26,6 +27,7 @@ const requiredFiles = [
   "services/document-worker/package-lock.json",
   "services/document-worker/src/server.mjs",
   "apps/chat/config/agents.json",
+  "apps/chat/src/chat-store.ts",
   ".env.example",
   ".gitignore",
   "setup.command",
@@ -83,6 +85,8 @@ const requiredFiles = [
   "pilot/results.json",
   "pilot/session-template.json",
   "tests/phase7/browser-widths.mjs",
+  "tests/phase7/chat-history-ui.mjs",
+  "tests/phase7/chat-upstream-mock.mjs",
   "tests/phase7/package-lock.json",
   "tests/phase7/package.json",
   "tests/phase7/test-pilot-evaluator.mjs",
@@ -208,6 +212,8 @@ check(
   localRunner.includes("documentWorkerServer") &&
     localRunner.includes("DOCUMENT_WORKER_URL") &&
     localRunner.includes('"data", "documents"') &&
+    localRunner.includes("CHAT_DATA_DIRECTORY") &&
+    localRunner.includes('"data", "chat"') &&
     localRunner.includes("documentWorkerPort") &&
     localRunner.includes("N8N_RUNNERS_BROKER_PORT") &&
     localRunner.includes("taskBrokerPort"),

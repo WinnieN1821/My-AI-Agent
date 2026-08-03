@@ -6,11 +6,15 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHAT_PORT="3350"
 DOCUMENT_WORKER_PORT="3191"
 N8N_PORT="5728"
+HISTORY_CHAT_PORT="3351"
+HISTORY_UPSTREAM_PORT="5739"
 TEST_ENCRYPTION_KEY="789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
 SESSION_ID="77777777-7777-4777-8777-777777777777"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/ai-solopreneur-phase7.XXXXXX")"
 STACK_ROOT="${TEMP_ROOT}/stack-copy"
 PREFLIGHT_ROOT="${TEMP_ROOT}/preflight-copy"
+HISTORY_CHAT_PID=""
+HISTORY_UPSTREAM_PID=""
 
 fail() {
   printf 'Phase 7 smoke test failed: %s\n' "$1" >&2
@@ -90,6 +94,8 @@ process.stdout.write(String(record.pid));
 }
 
 cleanup() {
+  [[ -z "${HISTORY_CHAT_PID}" ]] || kill "${HISTORY_CHAT_PID}" >/dev/null 2>&1 || true
+  [[ -z "${HISTORY_UPSTREAM_PID}" ]] || kill "${HISTORY_UPSTREAM_PID}" >/dev/null 2>&1 || true
   if [[ -f "${STACK_ROOT}/scripts/local.mjs" ]]; then
     copy_local stop >/dev/null 2>&1 || true
   fi
@@ -124,6 +130,36 @@ printf 'Checking the chat at mobile, tablet, and desktop widths...\n'
   BASE_URL="http://127.0.0.1:${CHAT_PORT}" \
     node tests/phase7/browser-widths.mjs
 )
+
+printf 'Checking saved-chat reload, search, rename, delete, and mobile history...\n'
+PORT="${HISTORY_UPSTREAM_PORT}" \
+  node "${PROJECT_ROOT}/tests/phase7/chat-upstream-mock.mjs" \
+  >"${TEMP_ROOT}/history-upstream.log" 2>&1 &
+HISTORY_UPSTREAM_PID="$!"
+PORT="${HISTORY_CHAT_PORT}" \
+CHAT_LISTEN_ADDRESS="127.0.0.1" \
+CHAT_DATA_DIRECTORY="${TEMP_ROOT}/history-chat" \
+DOCUMENT_DATA_DIRECTORY="${TEMP_ROOT}/history-documents" \
+DOCUMENT_WORKER_URL="http://127.0.0.1:1" \
+N8N_CHAT_WEBHOOK_URL="http://127.0.0.1:${HISTORY_UPSTREAM_PORT}/webhook/chat" \
+AGENT_REGISTRY_PATH="${PROJECT_ROOT}/apps/chat/config/agents.json" \
+  node "${PROJECT_ROOT}/apps/chat/dist/server.js" \
+  >"${TEMP_ROOT}/history-chat.log" 2>&1 &
+HISTORY_CHAT_PID="$!"
+curl \
+  --retry 30 \
+  --retry-delay 1 \
+  --retry-all-errors \
+  --fail \
+  --silent \
+  --show-error \
+  "http://127.0.0.1:${HISTORY_CHAT_PORT}/health" >/dev/null
+BASE_URL="http://127.0.0.1:${HISTORY_CHAT_PORT}" \
+  node "${PROJECT_ROOT}/tests/phase7/chat-history-ui.mjs"
+kill "${HISTORY_CHAT_PID}" "${HISTORY_UPSTREAM_PID}" >/dev/null 2>&1 || true
+wait "${HISTORY_CHAT_PID}" "${HISTORY_UPSTREAM_PID}" 2>/dev/null || true
+HISTORY_CHAT_PID=""
+HISTORY_UPSTREAM_PID=""
 
 printf 'Checking the inactive-workflow learner error...\n'
 inactive_response="$(chat_status_and_body)"
@@ -179,3 +215,4 @@ printf '  Inactive workflow:                 actionable 503\n'
 printf '  Occupied ports:                    detected\n'
 printf '  Native restart and health:         recovered\n'
 printf '  Browser widths:                    375, 768, and 1440 px\n'
+printf '  Saved chat browser lifecycle:      reload, search, rename, delete, mobile\n'

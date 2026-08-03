@@ -6,10 +6,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createChatServer } from "../dist/app.js";
+import { ChatStore } from "../dist/chat-store.js";
 import { DocumentStore } from "../dist/documents.js";
 
 const PUBLIC_DIRECTORY = fileURLToPath(new URL("../public", import.meta.url));
 const SESSION_ID = "9d4482cf-f720-4f70-98af-e337db1a9d53";
+const REQUEST_ID = "34ef81f9-e46e-4e22-a890-184dd5e4ae6d";
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -46,7 +48,10 @@ async function startGateway(t, options) {
     ...options,
   });
   const url = await listen(gateway);
-  t.after(() => close(gateway));
+  t.after(async () => {
+    await close(gateway);
+    options.chatStore?.close();
+  });
   return url;
 }
 
@@ -158,10 +163,17 @@ test("pasted text is session-bound and forwarded only through a document ID", as
   });
 
   assert.equal(response.status, 200);
-  assert.equal(forwardedBody.schemaVersion, 2);
+  assert.equal(forwardedBody.schemaVersion, 3);
+  assert.deepEqual(forwardedBody.history, []);
   assert.equal(forwardedBody.documents.length, 1);
   assert.equal(forwardedBody.documents[0].name, "Monday meeting");
   assert.match(forwardedBody.documents[0].text, /launch checklist/);
+  const savedConversation = await fetch(
+    `${gatewayUrl}/api/conversations/${SESSION_ID}`,
+  ).then((savedResponse) => savedResponse.json());
+  assert.equal(savedConversation.messages[0].attachments[0].name, "Monday meeting");
+  assert.equal(savedConversation.messages[0].attachments[0].expired, false);
+  assert.equal("text" in savedConversation.messages[0].attachments[0], false);
 
   const otherSessionResponse = await chat(gatewayUrl, {
     sessionId: "1be3cc7e-f7ef-48e4-919e-d2d09f8a43cb",
@@ -193,6 +205,7 @@ test("a valid request is trimmed, forwarded, and returned", async (t) => {
   });
 
   const response = await chat(gatewayUrl, {
+    requestId: REQUEST_ID,
     sessionId: SESSION_ID,
     message: "  Show me my open tasks  ",
     ignored: "version-one-compatible",
@@ -200,17 +213,210 @@ test("a valid request is trimmed, forwarded, and returned", async (t) => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(forwardedBody, {
-    schemaVersion: 2,
+    schemaVersion: 3,
+    requestId: REQUEST_ID,
     sessionId: SESSION_ID,
     agentId: "project-manager",
     message: "Show me my open tasks",
+    history: [],
     documents: [],
   });
-  assert.deepEqual(await response.json(), {
+  const responseBody = await response.json();
+  assert.deepEqual(
+    {
+      sessionId: responseBody.sessionId,
+      requestId: responseBody.requestId,
+      reply: responseBody.reply,
+      runId: responseBody.runId,
+    },
+    {
     sessionId: SESSION_ID,
+    requestId: REQUEST_ID,
     reply: "You have three open tasks.",
     runId: "run-123",
+    },
+  );
+  assert.match(responseBody.messageId, /^[0-9a-f-]{36}$/);
+});
+
+test("durable history is forwarded and available through conversation APIs", async (t) => {
+  const chatStore = new ChatStore(":memory:");
+  const forwardedBodies = [];
+  const upstreamUrl = await startUpstream(t, async (request, response) => {
+    const body = await readJsonRequest(request);
+    forwardedBodies.push(body);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        sessionId: body.sessionId,
+        reply:
+          forwardedBodies.length === 1
+            ? "The launch is on Friday."
+            : "Friday, from the earlier turn.",
+        runId: `run-${forwardedBodies.length}`,
+      }),
+    );
   });
+  const gatewayUrl = await startGateway(t, {
+    chatStore,
+    upstreamUrl: `${upstreamUrl}/webhook/chat`,
+  });
+
+  const firstResponse = await chat(gatewayUrl, {
+    requestId: REQUEST_ID,
+    sessionId: SESSION_ID,
+    agentId: "project-manager",
+    message: "Remember that the launch is on Friday.",
+  });
+  assert.equal(firstResponse.status, 200);
+
+  const secondResponse = await chat(gatewayUrl, {
+    requestId: "f1257ae3-60c4-4f2e-a20e-7976fd51027b",
+    sessionId: SESSION_ID,
+    agentId: "project-manager",
+    message: "When is the launch?",
+  });
+  assert.equal(secondResponse.status, 200);
+  assert.deepEqual(forwardedBodies[1].history, [
+    { role: "user", content: "Remember that the launch is on Friday." },
+    { role: "assistant", content: "The launch is on Friday." },
+  ]);
+
+  const listResponse = await fetch(`${gatewayUrl}/api/conversations`);
+  const list = await listResponse.json();
+  assert.equal(listResponse.status, 200);
+  assert.equal(list.conversations[0].id, SESSION_ID);
+  assert.equal(list.conversations[0].messageCount, 4);
+
+  const pageResponse = await fetch(
+    `${gatewayUrl}/api/conversations/${SESSION_ID}`,
+  );
+  const page = await pageResponse.json();
+  assert.equal(page.messages.length, 4);
+  assert.equal(page.messages[0].status, "complete");
+  assert.equal(page.messages[3].content, "Friday, from the earlier turn.");
+
+  const searchResponse = await fetch(
+    `${gatewayUrl}/api/conversations/search?q=${encodeURIComponent("launch Friday")}`,
+  );
+  const search = await searchResponse.json();
+  assert.equal(searchResponse.status, 200);
+  assert.ok(search.results.length >= 2);
+
+  const renameResponse = await fetch(
+    `${gatewayUrl}/api/conversations/${SESSION_ID}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Launch timing" }),
+    },
+  );
+  assert.equal(renameResponse.status, 200);
+  assert.equal((await renameResponse.json()).conversation.title, "Launch timing");
+});
+
+test("a completed request ID returns its stored reply without rerunning n8n", async (t) => {
+  const chatStore = new ChatStore(":memory:");
+  let upstreamCalls = 0;
+  const upstreamUrl = await startUpstream(t, async (request, response) => {
+    upstreamCalls += 1;
+    const body = await readJsonRequest(request);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({ sessionId: body.sessionId, reply: "Stored reply" }),
+    );
+  });
+  const gatewayUrl = await startGateway(t, {
+    chatStore,
+    upstreamUrl,
+  });
+  const body = {
+    requestId: REQUEST_ID,
+    sessionId: SESSION_ID,
+    message: "Do this once",
+  };
+
+  const first = await chat(gatewayUrl, body);
+  const firstBody = await first.json();
+  const duplicate = await chat(gatewayUrl, body);
+  const duplicateBody = await duplicate.json();
+
+  assert.equal(first.status, 200);
+  assert.equal(duplicate.status, 200);
+  assert.equal(upstreamCalls, 1);
+  assert.equal(duplicateBody.messageId, firstBody.messageId);
+  assert.equal(duplicateBody.reply, "Stored reply");
+});
+
+test("closing and reopening the gateway restores transcript and model context", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "ai-solopreneur-restart-"));
+  const databasePath = join(directory, "chat.sqlite");
+  const forwardedBodies = [];
+  const upstreamUrl = await startUpstream(t, async (request, response) => {
+    const body = await readJsonRequest(request);
+    forwardedBodies.push(body);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        sessionId: body.sessionId,
+        reply: body.message === "First turn" ? "First reply" : "Restored reply",
+      }),
+    );
+  });
+
+  let firstStore = new ChatStore(databasePath);
+  let firstServer = createChatServer({
+    publicDirectory: PUBLIC_DIRECTORY,
+    upstreamUrl,
+    chatStore: firstStore,
+    logError: () => {},
+  });
+  const firstUrl = await listen(firstServer);
+  try {
+    const firstResponse = await chat(firstUrl, {
+      requestId: REQUEST_ID,
+      sessionId: SESSION_ID,
+      message: "First turn",
+    });
+    assert.equal(firstResponse.status, 200);
+  } finally {
+    await close(firstServer);
+    firstStore.close();
+  }
+
+  const secondStore = new ChatStore(databasePath);
+  const secondServer = createChatServer({
+    publicDirectory: PUBLIC_DIRECTORY,
+    upstreamUrl,
+    chatStore: secondStore,
+    logError: () => {},
+  });
+  const secondUrl = await listen(secondServer);
+  try {
+    const restoredPage = await fetch(
+      `${secondUrl}/api/conversations/${SESSION_ID}`,
+    );
+    assert.equal(restoredPage.status, 200);
+    assert.deepEqual(
+      (await restoredPage.json()).messages.map((message) => message.content),
+      ["First turn", "First reply"],
+    );
+
+    const continued = await chat(secondUrl, {
+      requestId: "0631ee53-87bb-49ac-9440-a522987b17f6",
+      sessionId: SESSION_ID,
+      message: "Second turn",
+    });
+    assert.equal(continued.status, 200);
+    assert.deepEqual(forwardedBodies[1].history, [
+      { role: "user", content: "First turn" },
+      { role: "assistant", content: "First reply" },
+    ]);
+  } finally {
+    await close(secondServer);
+    secondStore.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("invalid requests never reach the upstream agent", async (t) => {
@@ -298,6 +504,33 @@ test("an unavailable upstream returns a safe, helpful error", async (t) => {
   assert.equal(response.status, 503);
   assert.equal(body.error.code, "AGENT_UNAVAILABLE");
   assert.match(body.error.message, /n8n.*workflow/i);
+});
+
+test("an upstream failure is persisted as a safe failed turn", async (t) => {
+  const chatStore = new ChatStore(":memory:");
+  const temporaryServer = createServer();
+  const unavailableUrl = await listen(temporaryServer);
+  await close(temporaryServer);
+  const gatewayUrl = await startGateway(t, {
+    chatStore,
+    upstreamUrl: unavailableUrl,
+  });
+
+  const response = await chat(gatewayUrl, {
+    requestId: REQUEST_ID,
+    sessionId: SESSION_ID,
+    message: "Keep this failed request visible",
+  });
+  assert.equal(response.status, 503);
+
+  const historyResponse = await fetch(
+    `${gatewayUrl}/api/conversations/${SESSION_ID}`,
+  );
+  const history = await historyResponse.json();
+  assert.equal(history.messages.length, 1);
+  assert.equal(history.messages[0].status, "failed");
+  assert.equal(history.messages[0].errorCode, "AGENT_UNAVAILABLE");
+  assert.deepEqual(chatStore.getHistory(SESSION_ID), []);
 });
 
 test("an inactive n8n webhook returns AGENT_UNAVAILABLE", async (t) => {

@@ -343,6 +343,16 @@ expect_not_contains "${diagnostic_after}" \
   "configured diagnostics"
 
 printf 'Testing private backup, confirmed reset, and restore...\n'
+saved_conversation="$(
+  curl --fail --silent --show-error \
+    -X POST "http://127.0.0.1:${CHAT_PORT}/api/conversations" \
+    -H 'Content-Type: application/json' \
+    --data '{"agentId":"project-manager"}'
+)"
+saved_conversation_id="$(
+  node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(body.conversation.id);" \
+    <<<"${saved_conversation}"
+)"
 "${COPY_ROOT}/scripts/backup.sh" >/dev/null
 backup_directory="$(
   find "${COPY_ROOT}/backups" \
@@ -357,6 +367,10 @@ backup_directory="$(
   fail "backup archive is missing"
 [[ -s "${backup_directory}/env.backup" ]] ||
   fail "backup environment file is missing"
+[[ -s "${backup_directory}/backup.json" ]] ||
+  fail "versioned backup manifest is missing"
+[[ -s "${backup_directory}/chat-data/chat.sqlite" ]] ||
+  fail "chat history database backup is missing"
 
 "${COPY_ROOT}/scripts/reset.sh" --yes >/dev/null
 if [[ -e "${COPY_ROOT}/data/n8n" ]]; then
@@ -364,6 +378,9 @@ if [[ -e "${COPY_ROOT}/data/n8n" ]]; then
 fi
 if [[ -e "${COPY_ROOT}/data/documents" ]]; then
   fail "reset did not remove the local document data folder"
+fi
+if [[ -e "${COPY_ROOT}/data/chat" ]]; then
+  fail "reset did not remove the local chat data folder"
 fi
 
 "${COPY_ROOT}/scripts/start.sh" >/dev/null
@@ -377,6 +394,13 @@ restored_workflow_list="$(copy_local n8n list:workflow)"
 expect_contains "${restored_workflow_list}" \
   "phase6LearnerChecklist|01 - START HERE - Learner Checklist [LOCAL EDIT]" \
   "restored workflow state"
+restored_conversation="$(
+  curl --fail --silent --show-error \
+    "http://127.0.0.1:${CHAT_PORT}/api/conversations/${saved_conversation_id}"
+)"
+expect_contains "${restored_conversation}" \
+  "\"id\":\"${saved_conversation_id}\"" \
+  "restored saved chat"
 set +e
 restored_diagnostics="$(diagnostics_until_green)"
 restored_diagnostics_status=$?

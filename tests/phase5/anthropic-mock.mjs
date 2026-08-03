@@ -192,7 +192,7 @@ function chooseResponse(body) {
   if (/what is my launch called/i.test(lastUser)) {
     return {
       type: "text",
-      text: /Lantern/i.test(previousText)
+      text: /Lantern/i.test(`${previousText}\n${lastUser}`)
         ? "Your launch is called Lantern."
         : "I do not know the launch name yet.",
     };

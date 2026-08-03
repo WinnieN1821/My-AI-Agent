@@ -283,6 +283,18 @@ copy_local status >/dev/null
 initial_list="$(list_tasks "${SESSION_A}")"
 expect_contains "${initial_list}" '"count":3' "initial task list"
 
+printf 'Proving conversation memory survives restart and remains isolated...\n'
+remembered_launch="$(chat "${SESSION_C}" "My launch is called Lantern")"
+expect_contains "${remembered_launch}" 'remember that your launch is called Lantern' \
+  "saved conversation fact"
+copy_local restart >/dev/null
+resumed_launch="$(chat "${SESSION_C}" "What is my launch called?")"
+expect_contains "${resumed_launch}" 'Your launch is called Lantern' \
+  "same conversation after restart"
+isolated_launch="$(chat "${SESSION_D}" "What is my launch called?")"
+expect_contains "${isolated_launch}" 'I do not know' \
+  "different conversation isolation"
+
 printf 'Preparing a write while proving plain yes and unrelated phrases cannot approve it...\n'
 first_proposal="$(
   chat "${SESSION_A}" "Create a task to invite the pilot group"
@@ -478,6 +490,7 @@ fi
 printf '\nPhase 5 smoke test passed.\n'
 printf '  Enabled Markdown skills:       4\n'
 printf '  Automatic read tools:          list_tasks\n'
+printf '  Restart-safe chat memory:       isolated by conversation\n'
 printf '  Confirmation-gated writes:     create and status update\n'
 printf '  Cross-session/altered/old yes: rejected\n'
 printf '  Expiry and single-use:          enforced\n'
