@@ -1,6 +1,6 @@
 # AI Solopreneur
 
-Build and personalise a useful Claude-powered project assistant on your own computer. No Docker or manual Node.js install is required: Claude Code or the one-click setup uses an existing Node.js 24+ runtime when available, otherwise it downloads a verified private copy inside this project.
+Build and personalise a useful Claude-powered project assistant on your own computer. No manual Node.js install is required: Claude Code or the one-click setup selects the reviewed Node.js 24.18.0 and npm 11.16.0 pair, downloading a verified private copy inside this project when that exact pair is not already available.
 
 **Local release:** `v0.2.0`
 
@@ -31,8 +31,13 @@ Everything runs locally as ordinary Node.js processes. Nothing is deployed to th
 - Claude Desktop, open in Code mode.
 - GitHub Desktop if you want its visual commit-and-push workflow.
 - An Anthropic Console API key with a small amount of API credit.
+- At least 6 GB of free disk space for first setup; 8 GB is recommended.
 
 Use the detailed [workshop prerequisites](docs/WORKSHOP_PREREQUISITES.md) if any item is unfamiliar. A Claude web subscription does not include API usage.
+
+Windows support is Windows 10 or 11 on x64, plus Windows 11 on ARM through its
+built-in x64 emulation. Windows 10 on ARM is not supported. On Windows, keep the
+project in a short local folder outside OneDrive and network/UNC paths.
 
 Never paste the Claude API key into GitHub, `.env`, a chat message, a screenshot, or `agent.config.js`. You will enter it only in n8n.
 
@@ -43,7 +48,7 @@ Never paste the Claude API key into GitHub, `.env`, a chat message, a screenshot
 3. Leave **Include all branches** off.
 4. Select **Create repository**.
 5. Select **Code**, keep **HTTPS** selected, and copy your repository URL.
-6. Open Claude Desktop in Code mode and ask: `Please clone this repo: <paste your repository URL>`.
+6. Open Claude Desktop in Code mode and ask: `Please clone this repo: <paste your repository URL>`. On Windows, add: `Use a short local folder outside OneDrive or a network path.`
 7. Open the cloned project in the Claude Code session.
 
 The [GitHub Desktop guide](docs/GITHUB_DESKTOP.md) remains available as a visual cloning fallback and explains how to review, commit, and push your customisations.
@@ -55,10 +60,17 @@ In the cloned project's Claude Code session, ask:
 ```text
 Read the README and the existing setup scripts in this repository.
 Start the local services using the project's documented one-click setup.
+On Windows, set AI_SOLO_NO_PAUSE=1 before running the .cmd helper.
 Keep them running, verify the chat and n8n URLs, then open those two pages for me.
 ```
 
-Claude runs the matching helper. If Node.js 24+ is not already available, the helper downloads Node.js 24.18.0 from the official Node.js site, verifies its SHA-256 checksum, and keeps it in the Git-ignored `.runtime/` folder. It does not install anything globally or request administrator access.
+Claude runs the matching helper. Setup accepts an existing Node.js 24.18.0 only
+when it has the matching npm 11.16.0; otherwise it downloads the official
+Node.js archive, verifies its SHA-256 checksum, and keeps the reviewed pair in
+the Git-ignored `.runtime/` folder. It does not install anything globally or
+request administrator access. `AI_SOLO_NO_PAUSE=1` lets the Windows launcher
+return its real status to Claude Code without waiting for a key; double-clicked
+launchers still pause so a learner can read the result.
 
 You can also run the same setup without Claude:
 
@@ -72,11 +84,12 @@ If macOS blocks it, Control-click the file, choose **Open**, then confirm.
 
 Double-click `setup-windows.cmd`.
 
-Setup prepares the private Node.js runtime when needed, checks the three local
-ports, downloads the exact pinned n8n release and document-reader packages with
-npm, builds the chat app, starts all three services in the background, imports
-all reviewed workflows, creates three sample tasks, and loads the enabled
-skills. First setup can take several minutes while packages download.
+Setup prepares the reviewed Node.js 24.18.0 and npm 11.16.0 pair when needed,
+checks disk space, folder access, and all required local ports, downloads the exact
+pinned n8n release and document-reader packages, builds the chat app, starts all
+three services in the background, imports all reviewed workflows, creates three
+sample tasks, and loads the enabled skills. First setup can take several minutes
+while packages download.
 
 Success ends with:
 
@@ -123,7 +136,7 @@ Run the friendly diagnostic:
 - macOS: double-click `diagnose.command`.
 - Windows: double-click `diagnose-windows.cmd`.
 
-The helper checks Node.js, both local services, the installed checklist, the published agent, the selected Anthropic credential, and the health workflow. It does not call Claude and never displays credential values.
+The helper checks Node.js, all three local services, the installed checklist, the published agent, the selected Anthropic credential, and the health workflow. It does not call Claude and never displays credential values.
 
 Follow any yellow `[next]` line, then run it again. Continue when it reports:
 
@@ -179,10 +192,12 @@ Before a workshop experiment or workflow edit, create a private backup:
 - macOS: double-click `backup.command`.
 - Windows: double-click `backup-windows.cmd`.
 
-Backups contain encrypted credentials and local settings. They are ignored by Git and must stay private.
+Backups contain plaintext saved chats, encrypted credentials, and local settings.
+They are ignored by Git and must stay private.
 
-Normal stop/start keeps data. Reset permanently removes local n8n accounts,
-credentials, workflows, history, and extracted document context:
+Normal stop/start restores saved chats and recent per-conversation context.
+Reset permanently removes saved chats, local n8n accounts, credentials,
+workflows, execution history, and extracted document context:
 
 - macOS: double-click `reset.command`.
 - Windows: double-click `reset-windows.cmd`.
@@ -192,11 +207,12 @@ Reset asks you to type `RESET`. The [operations and recovery guide](docs/LOCAL_O
 ## What is included
 
 - One cross-platform Node.js runner (`scripts/local.mjs`) behind every double-click helper.
-- A checksum-verified Node.js 24.18.0 bootstrap for macOS and Windows, stored only inside `.runtime/` when the computer needs it.
+- A checksum-verified Node.js 24.18.0 and npm 11.16.0 bootstrap for macOS and Windows, stored only inside `.runtime/` when the computer needs it.
 - The exact pinned n8n release, installed with npm and kept in this project's folder.
 - A TypeScript chat gateway, custom browser interface, and isolated document reader.
 - Eleven reviewed n8n workflows, including the visual learner checklist.
-- Claude Sonnet integration with per-conversation local memory.
+- Durable local SQLite chat history with browsing, full-text search, rename,
+  deletion, and restart-safe bounded conversation memory.
 - Four local Data Tables for tasks, audits, pending confirmations, and enabled skills.
 - Four editable Markdown skills, including grounded meeting analysis.
 - A central agent registry with Project Manager active and Sales, Marketing,
@@ -205,15 +221,10 @@ Reset asks you to type `RESET`. The [operations and recovery guide](docs/LOCAL_O
 - Automatic reads and exact, expiring, single-use confirmation for writes.
 - Local diagnostics, backup, restore, reset, import, export, and skill-sync helpers.
 - macOS and Windows entry points.
-- An optional, pinned Docker Compose recipe (`compose.yaml`) kept for the workflow smoke tests and a later cloud deployment.
 
 Deliberately deferred: OCR for scanned PDFs, cloud deployment, public access,
 Slack, WhatsApp, Telegram, email, external project-management accounts,
 multi-user authentication, RAG, queues, and autonomous background work.
-
-### Where Docker fits now
-
-Learners never need Docker. The `compose.yaml` file and its digest-pinned images remain in the repository as the reviewed recipe for the Docker-based workflow smoke tests and for the day this stack moves to a cloud computer — Docker then runs on the server, not on anyone's laptop.
 
 ## Guides
 
@@ -227,6 +238,7 @@ Learners never need Docker. The `compose.yaml` file and its digest-pinned images
 - [Customise the chat](docs/CUSTOMISE_CHAT.md)
 - [Customise Markdown skills](docs/CUSTOMISE_SKILLS.md)
 - [Use documents and long transcripts](docs/DOCUMENT_UPLOADS.md)
+- [Understand durable local chat memory](docs/CHAT_PERSISTENCE_PLAN.md)
 - [Troubleshooting quick table](docs/TROUBLESHOOTING.md)
 
 ### Instructors
@@ -254,27 +266,24 @@ Learners never need Docker. The `compose.yaml` file and its digest-pinned images
 - [Move visual workflow changes back into Git](docs/WORKFLOW_DEVELOPMENT.md)
 - [Phased implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
-Technical checks run directly with the same Node.js installation learners already have:
+Technical checks run directly with the same reviewed Node.js and npm pair used
+by the learner helpers:
 
 ```bash
 node scripts/validate-workflows.mjs
-
-./scripts/test-phase6.sh
-./scripts/test-phase7.sh
-./scripts/test-phase8.sh
 
 # The evaluator remains NO_GO because the owner waived, rather than fabricated,
 # the planned human pilot.
 ./scripts/evaluate-pilot.sh
 ```
 
-The maintenance helpers are also available directly: `node scripts/local.mjs help` lists setup, start, stop, status, logs, diagnose, and the import, export, backup, restore, and reset commands. Phase 3–5 and 7 workflow smoke tests still use the pinned Docker images and are aimed at contributors and CI.
+The maintenance helpers are also available directly: `node scripts/local.mjs help` lists setup, start, stop, status, logs, diagnose, and the import, export, backup, restore, and reset commands. The repository does not currently include an automated test or CI/CD suite; contributors should validate workflow structure and manually exercise the affected learner path before sharing a change.
 
 ## Current milestone
 
 Phases 0–8 of the local-first implementation plan are implemented for local
-release `v0.2.0`, which replaces the Docker Desktop learner requirement with a
-verified project-local Node.js runtime. The repository owner reviewed the experience and
+release `v0.2.0`, using a verified project-local Node.js runtime throughout.
+The repository owner reviewed the experience and
 explicitly authorised Phase 8 without the planned five-person pilot. That
 waiver is recorded transparently: `pilot/results.json` remains `not_run` and
 the evaluator remains `NO_GO`. Cloud deployment, external chat channels, and

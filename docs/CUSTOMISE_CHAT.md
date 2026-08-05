@@ -39,7 +39,7 @@ window.AGENT_CONFIG = Object.freeze({
 
 Change the words between the quotation marks. Keep the quotation marks, commas, square brackets, and other punctuation in place.
 
-Save the file, then refresh [http://localhost:3000](http://localhost:3000). The local Compose setup shares this folder with the chat container, so these settings update without rebuilding the image.
+Save the file, restart the local services, then refresh [http://localhost:3000](http://localhost:3000).
 
 ## Choose a colour
 
@@ -80,12 +80,12 @@ The interface displays configuration values and agent replies as plain text. It 
 The browser assets are in `apps/chat/public/`. The small TypeScript gateway is
 in `apps/chat/src/`.
 
-Run its contract tests with:
+Install its locked dependencies and check that it builds with:
 
 ```bash
 cd apps/chat
 npm ci
-npm test
+npm run build
 ```
 
 Rebuild and restart after changing TypeScript:

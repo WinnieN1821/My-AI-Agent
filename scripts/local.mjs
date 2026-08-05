@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Cross-platform local runner for AI Solopreneur.
 //
-// One Node.js script replaces the previous Docker Compose path for learners:
-// it installs the pinned n8n engine with npm, builds the dependency-free chat
+// One Node.js script provides the complete local runtime: it installs the
+// pinned n8n engine with npm, builds the dependency-free chat
 // gateway and document reader, runs all three as background processes, and
 // provides the same setup,
 // import, diagnose, backup, restore, and reset helpers on macOS and Windows.
@@ -13,6 +13,7 @@
 //   node scripts/local.mjs help
 
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   closeSync,
   cpSync,
@@ -23,6 +24,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statfsSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -40,6 +42,20 @@ const rootPackage = JSON.parse(
   readFileSync(join(projectRoot, "package.json"), "utf8"),
 );
 const pinnedN8nVersion = rootPackage.dependencies.n8n;
+const pinnedNodeVersion = readFileSync(
+  join(projectRoot, ".node-version"),
+  "utf8",
+).trim();
+const pinnedNpmVersion = readFileSync(
+  join(projectRoot, ".npm-version"),
+  "utf8",
+).trim();
+const runtimeRoot = resolve(
+  process.env.AI_SOLO_RUNTIME_DIR || join(projectRoot, ".runtime"),
+);
+const npmInstallTimeoutMs = 30 * 60 * 1_000;
+const npmCommandTimeoutMs = 10 * 60 * 1_000;
+const n8nCliTimeoutMs = 5 * 60 * 1_000;
 
 const paths = {
   envFile: join(projectRoot, ".env"),
@@ -54,6 +70,8 @@ const paths = {
   chatDir: join(projectRoot, "apps", "chat"),
   chatServer: join(projectRoot, "apps", "chat", "dist", "server.js"),
   agentRegistry: join(projectRoot, "apps", "chat", "config", "agents.json"),
+  chatDataDir: join(projectRoot, "data", "chat"),
+  chatDatabase: join(projectRoot, "data", "chat", "chat.sqlite"),
   documentWorkerDir: join(projectRoot, "services", "document-worker"),
   documentWorkerServer: join(
     projectRoot,
@@ -73,6 +91,11 @@ const paths = {
   documentDataDir: join(projectRoot, "data", "documents"),
   workflowsDir: join(projectRoot, "n8n", "workflows"),
   backupsDir: join(projectRoot, "backups"),
+  runtimeDir: runtimeRoot,
+  npmCacheDir: join(runtimeRoot, "npm-cache"),
+  npmLogsDir: join(runtimeRoot, "npm-logs"),
+  n8nInstallStamp: join(runtimeRoot, "n8n-install.json"),
+  operationLock: join(projectRoot, "data", "run", "operation.lock"),
 };
 
 const workflowIds = {
@@ -147,11 +170,17 @@ function config() {
   const chatPort = Number(value("CHAT_PORT", "3000"));
   const n8nPort = Number(value("N8N_PORT", "5678"));
   const documentWorkerPort = Number(value("DOCUMENT_WORKER_PORT", "3100"));
+  const taskBrokerPort = Number(
+    value(
+      "N8N_RUNNERS_BROKER_PORT",
+      String(n8nPort === 65535 ? n8nPort - 1 : n8nPort + 1),
+    ),
+  );
   const timezone = value("GENERIC_TIMEZONE", systemTimezone());
 
-  // The Docker path stored the n8n encryption key in .env. Native n8n manages
-  // its own key inside data/n8n, but honouring an existing real key keeps old
-  // backups restorable. Placeholders from .env.example are ignored.
+  // n8n normally manages its own key inside data/n8n. An explicit key remains
+  // supported for controlled backup/restore workflows. The placeholder from
+  // .env.example is ignored.
   const envKey = value("N8N_ENCRYPTION_KEY", "");
   const encryptionKey =
     envKey.length >= 32 && !envKey.startsWith("replace-") ? envKey : "";
@@ -160,6 +189,7 @@ function config() {
     chatPort,
     n8nPort,
     documentWorkerPort,
+    taskBrokerPort,
     timezone,
     encryptionKey,
   };
@@ -186,6 +216,8 @@ function n8nEnv(cfg) {
     N8N_PORT: String(cfg.n8nPort),
     N8N_PROTOCOL: "http",
     N8N_RUNNERS_TASK_TIMEOUT: "60",
+    N8N_RUNNERS_BROKER_LISTEN_ADDRESS: "127.0.0.1",
+    N8N_RUNNERS_BROKER_PORT: String(cfg.taskBrokerPort),
     N8N_SECURE_COOKIE: "false",
     N8N_UNVERIFIED_PACKAGES_ENABLED: "false",
     N8N_USER_FOLDER: paths.n8nUserFolder,
@@ -205,6 +237,7 @@ function chatEnv(cfg) {
     AGENT_REGISTRY_PATH: paths.agentRegistry,
     CHAT_LISTEN_ADDRESS: "127.0.0.1",
     CHAT_REQUEST_TIMEOUT_MS: "120000",
+    CHAT_DATA_DIRECTORY: paths.chatDataDir,
     DOCUMENT_DATA_DIRECTORY: paths.documentDataDir,
     DOCUMENT_WORKER_URL: `http://127.0.0.1:${cfg.documentWorkerPort}`,
     N8N_CHAT_WEBHOOK_URL: `http://127.0.0.1:${cfg.n8nPort}/webhook/chat`,
@@ -241,6 +274,61 @@ function ensureDirs() {
     paths.tmpDir,
   ]) {
     mkdirSync(dir, { recursive: true });
+  }
+}
+
+function ensureNpmDirs() {
+  for (const dir of [paths.runtimeDir, paths.npmCacheDir, paths.npmLogsDir]) {
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
+async function withOperationLock(label, operation) {
+  ensureDirs();
+  let descriptor;
+  try {
+    descriptor = openSync(paths.operationLock, "wx");
+  } catch (error) {
+    if (error.code !== "EEXIST") {
+      throw error;
+    }
+    try {
+      const existing = JSON.parse(readFileSync(paths.operationLock, "utf8"));
+      const ageMs = Date.now() - Date.parse(existing.startedAt);
+      if (
+        Number.isInteger(existing.pid) &&
+        pidIsRunning(existing.pid) &&
+        Number.isFinite(ageMs) &&
+        ageMs >= 0 &&
+        ageMs < 2 * 60 * 60 * 1_000
+      ) {
+        throw new Error(
+          `Another ${existing.label || "setup/start"} operation is already running ` +
+            `(PID ${existing.pid}). Keep that window open and wait for it to finish.`,
+        );
+      }
+    } catch (existingError) {
+      if (existingError.message.startsWith("Another ")) {
+        throw existingError;
+      }
+    }
+    rmSync(paths.operationLock, { force: true });
+    descriptor = openSync(paths.operationLock, "wx");
+  }
+
+  try {
+    writeFileSync(
+      descriptor,
+      `${JSON.stringify({
+        pid: process.pid,
+        label,
+        startedAt: new Date().toISOString(),
+      })}\n`,
+    );
+    return await operation();
+  } finally {
+    closeSync(descriptor);
+    rmSync(paths.operationLock, { force: true });
   }
 }
 
@@ -281,20 +369,29 @@ async function confirmPhrase(prompt, phrase) {
   }
 }
 
-function portInUse(port) {
+function checkPortBinding(port) {
   return new Promise((resolvePort) => {
-    const socket = net.connect({ port, host: "127.0.0.1" });
-    let settled = false;
+    const server = net.createServer();
     const finish = (result) => {
-      if (!settled) {
-        settled = true;
-        socket.destroy();
-        resolvePort(result);
+      server.removeAllListeners();
+      try {
+        server.close();
+      } catch {
+        // The server never reached its listening state.
       }
+      resolvePort(result);
     };
-    socket.once("connect", () => finish(true));
-    socket.once("error", () => finish(false));
-    socket.setTimeout(1_000, () => finish(false));
+    server.once("error", (error) => {
+      finish({ available: false, code: error.code ?? "UNKNOWN" });
+    });
+    server.listen(
+      {
+        port,
+        host: "127.0.0.1",
+        exclusive: true,
+      },
+      () => finish({ available: true, code: null }),
+    );
   });
 }
 
@@ -351,40 +448,119 @@ function fetchStatus(url, options = {}, timeoutMs = 5_000) {
 // Node and npm checks
 // ---------------------------------------------------------------------------
 
-const REQUIRED_NODE_MAJOR = 24;
-
-function nodeMajor() {
-  return Number(process.versions.node.split(".")[0]);
-}
-
 function assertNodeVersion() {
-  if (nodeMajor() < REQUIRED_NODE_MAJOR) {
+  if (process.versions.node !== pinnedNodeVersion) {
     printError(
-      `This project needs Node.js ${REQUIRED_NODE_MAJOR} (LTS) or newer; ` +
-        `this computer has ${process.versions.node}.`,
+      `This project uses the reviewed Node.js ${pinnedNodeVersion} runtime; ` +
+        `this command is running with ${process.versions.node}.`,
     );
     printError(
-      "Run setup.command (macOS) or setup-windows.cmd (Windows) so the project can use its verified private Node.js copy.",
+      "Run it through setup.command (macOS) or setup-windows.cmd (Windows) so the project selects the matching private runtime.",
     );
     process.exit(1);
   }
 }
 
-function runNpm(args, { cwd, label }) {
-  const result = spawnSync("npm", args, {
+function bundledNpmCli() {
+  const candidates = isWindows
+    ? [join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")]
+    : [
+        join(
+          dirname(process.execPath),
+          "..",
+          "lib",
+          "node_modules",
+          "npm",
+          "bin",
+          "npm-cli.js",
+        ),
+      ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function npmEnvironment() {
+  ensureNpmDirs();
+  const env = { ...process.env };
+  const setControlled = (name, value) => {
+    for (const key of Object.keys(env)) {
+      if (key.toUpperCase() === name) {
+        delete env[key];
+      }
+    }
+    env[name] = value;
+  };
+  setControlled("NPM_CONFIG_CACHE", paths.npmCacheDir);
+  setControlled("NPM_CONFIG_LOGS_DIR", paths.npmLogsDir);
+  setControlled("NPM_CONFIG_FETCH_RETRIES", "5");
+  setControlled("NPM_CONFIG_FETCH_RETRY_MINTIMEOUT", "2000");
+  setControlled("NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT", "30000");
+  setControlled("NPM_CONFIG_FETCH_TIMEOUT", "120000");
+  setControlled("NPM_CONFIG_MAXSOCKETS", "16");
+  setControlled("NPM_CONFIG_LOGLEVEL", "error");
+  return env;
+}
+
+function latestNpmLog() {
+  try {
+    return readdirSync(paths.npmLogsDir)
+      .filter((entry) => entry.endsWith(".log"))
+      .map((entry) => join(paths.npmLogsDir, entry))
+      .sort(
+        (left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs,
+      )[0];
+  } catch {
+    return null;
+  }
+}
+
+function runNpmRaw(args, { cwd, stdio = "inherit", timeout } = {}) {
+  const npmCli = bundledNpmCli();
+  if (isWindows && npmCli === null) {
+    return {
+      error: new Error(
+        `The npm CLI paired with ${process.execPath} is missing. Rerun setup-windows.cmd so it can repair the private runtime.`,
+      ),
+      status: null,
+    };
+  }
+  const command = npmCli === null ? "npm" : process.execPath;
+  const commandArgs = npmCli === null ? args : [npmCli, ...args];
+  return spawnSync(command, commandArgs, {
     cwd,
-    stdio: "inherit",
-    shell: isWindows,
-    env: { ...process.env },
+    stdio,
+    encoding: stdio === "pipe" ? "utf8" : undefined,
+    timeout,
+    env: npmEnvironment(),
   });
+}
+
+function runNpm(args, { cwd, label, timeout = npmCommandTimeoutMs }) {
+  const result = runNpmRaw(args, { cwd, timeout });
   if (result.error) {
+    const log = latestNpmLog();
+    if (result.error.code === "ETIMEDOUT") {
+      throw new Error(
+        `${label} did not finish within ${Math.ceil(timeout / 60_000)} minutes and was stopped.` +
+          (log ? `\nDetailed npm log: ${log}` : "") +
+          (log ? `\nLast npm log lines:\n${tailOfFile(log, 60)}` : "") +
+          "\nCheck the network requirements, free disk space, and whether antivirus or OneDrive is scanning the project, then rerun setup.",
+      );
+    }
     throw new Error(
       `npm is not available (${result.error.message}). ` +
         "Rerun the command through the supplied project helper so it can use the matching private npm copy.",
     );
   }
   if (result.status !== 0) {
-    throw new Error(`${label} did not finish successfully (npm exit ${result.status}).`);
+    const log = latestNpmLog();
+    const help = isWindows
+      ? "\nOn Windows, also check that the project is in a short local folder outside OneDrive, has at least 6 GB free, and can reach registry.npmjs.org, cdn.sheetjs.com, and release-assets.githubusercontent.com."
+      : "";
+    throw new Error(
+      `${label} did not finish successfully (npm exit ${result.status}).` +
+        (log ? `\nDetailed npm log: ${log}` : "") +
+        help,
+    );
   }
 }
 
@@ -393,10 +569,10 @@ function runNpm(args, { cwd, label }) {
 // ---------------------------------------------------------------------------
 
 function requireLocalInstall() {
-  if (!existsSync(paths.n8nBin)) {
+  if (!n8nInstallIsCurrent()) {
     throw new Error(
-      "Local setup has not been completed. " +
-        "Double-click setup.command (macOS) or setup-windows.cmd (Windows) first.",
+      "The pinned n8n dependency installation is missing, incomplete, or was created by a different Node.js runtime. " +
+        "Double-click setup.command (macOS) or setup-windows.cmd (Windows) to repair it.",
     );
   }
 }
@@ -406,10 +582,20 @@ function ensureDocumentWorkerInstalled() {
     return;
   }
   print("Installing the local document reader...");
-  runNpm(["ci", "--no-audit", "--no-fund", "--ignore-scripts"], {
-    cwd: paths.documentWorkerDir,
-    label: "Installing the local document reader",
-  });
+  runNpm(
+    [
+      "ci",
+      "--no-audit",
+      "--no-fund",
+      "--include=optional",
+      "--ignore-scripts",
+      "--bin-links=true",
+    ],
+    {
+      cwd: paths.documentWorkerDir,
+      label: "Installing the local document reader",
+    },
+  );
 }
 
 function chatBuildIsStale() {
@@ -433,10 +619,21 @@ function ensureChatBuilt() {
   }
   print("Building the local chat app...");
   if (!existsSync(join(paths.chatDir, "node_modules", "typescript"))) {
-    runNpm(["ci", "--no-audit", "--no-fund", "--ignore-scripts"], {
-      cwd: paths.chatDir,
-      label: "Installing the chat build tools",
-    });
+    runNpm(
+      [
+        "ci",
+        "--no-audit",
+        "--no-fund",
+        "--include=dev",
+        "--include=optional",
+        "--ignore-scripts",
+        "--bin-links=true",
+      ],
+      {
+        cwd: paths.chatDir,
+        label: "Installing the chat build tools",
+      },
+    );
   }
   runNpm(["run", "build"], {
     cwd: paths.chatDir,
@@ -452,19 +649,103 @@ function installedN8nVersion() {
   }
 }
 
-function runN8nCli(args, { capture = false } = {}) {
+function installedNpmVersion() {
+  const result = runNpmRaw(["--version"], {
+    cwd: projectRoot,
+    stdio: "pipe",
+    timeout: 30_000,
+  });
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  return String(result.stdout ?? "").trim();
+}
+
+function n8nInstallSignature() {
+  const lockHash = createHash("sha256")
+    .update(readFileSync(join(projectRoot, "package-lock.json")))
+    .digest("hex");
+  return {
+    lockHash,
+    nodeVersion: process.versions.node,
+    nodeArch: process.arch,
+    nodeModulesAbi: process.versions.modules,
+    npmVersion: installedNpmVersion(),
+    platform: process.platform,
+  };
+}
+
+function n8nNativeDependenciesWork() {
+  if (!existsSync(paths.n8nPackage)) {
+    return false;
+  }
+  const result = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      "require('sqlite3'); require('isolated-vm'); process.stdout.write('ok')",
+    ],
+    {
+      cwd: projectRoot,
+      stdio: "ignore",
+      timeout: 30_000,
+    },
+  );
+  return !result.error && result.status === 0;
+}
+
+function n8nInstallIsCurrent() {
+  if (installedN8nVersion() !== pinnedN8nVersion) {
+    return false;
+  }
+  try {
+    const recorded = JSON.parse(readFileSync(paths.n8nInstallStamp, "utf8"));
+    const expected = n8nInstallSignature();
+    return (
+      Object.keys(expected).every((key) => recorded[key] === expected[key]) &&
+      n8nNativeDependenciesWork()
+    );
+  } catch {
+    return false;
+  }
+}
+
+function recordSuccessfulN8nInstall() {
+  ensureNpmDirs();
+  writeFileSync(
+    paths.n8nInstallStamp,
+    `${JSON.stringify(
+      {
+        ...n8nInstallSignature(),
+        completedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function runN8nCli(args, { capture = false, timeout = n8nCliTimeoutMs } = {}) {
   const cfg = config();
   const result = spawnSync(process.execPath, [paths.n8nBin, ...args], {
     env: { ...process.env, ...n8nEnv(cfg) },
     encoding: "utf8",
     stdio: capture ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
     maxBuffer: 64 * 1024 * 1024,
+    timeout,
   });
   return result;
 }
 
 function n8nCliOrThrow(args, label) {
   const result = runN8nCli(args, { capture: true });
+  if (result.error) {
+    const timeoutHelp =
+      result.error.code === "ETIMEDOUT"
+        ? ` The command exceeded ${Math.ceil(n8nCliTimeoutMs / 60_000)} minutes and was stopped.`
+        : "";
+    throw new Error(`${label} could not run (${result.error.message}).${timeoutHelp}`);
+  }
   if (result.status !== 0) {
     const detail = `${result.stderr || ""}${result.stdout || ""}`
       .split(/\r?\n/)
@@ -529,9 +810,61 @@ function pidIsRunning(pid) {
   }
 }
 
+function windowsProcessMatchesService(pid, service) {
+  const script = [
+    `$p = Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" -ErrorAction SilentlyContinue`,
+    "if ($p) {",
+    "  [PSCustomObject]@{ ExecutablePath = $p.ExecutablePath; CommandLine = $p.CommandLine } | ConvertTo-Json -Compress",
+    "}",
+  ].join("\n");
+  const result = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-Command", script],
+    {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+    },
+  );
+  if (result.error || result.status !== 0 || !result.stdout?.trim()) {
+    return false;
+  }
+  try {
+    const details = JSON.parse(result.stdout.trim());
+    const executable = String(details.ExecutablePath ?? "").toLowerCase();
+    const commandLine = String(details.CommandLine ?? "").toLowerCase();
+    return (
+      executable === process.execPath.toLowerCase() &&
+      commandLine.includes(service.argv()[0].toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
 function serviceIsRunning(service) {
   const record = readPidRecord(service);
-  return record !== null && pidIsRunning(record.pid);
+  if (record === null || !pidIsRunning(record.pid)) {
+    return false;
+  }
+  return !isWindows || windowsProcessMatchesService(record.pid, service);
+}
+
+function serviceOwnsConfiguredPort(service, port, role = "primary") {
+  if (!serviceIsRunning(service)) {
+    return false;
+  }
+  const record = readPidRecord(service);
+  if (record === null) {
+    return false;
+  }
+  if (role === "taskBroker") {
+    const recordedBrokerPort =
+      record.taskBrokerPort ??
+      (record.port === 65535 ? record.port - 1 : record.port + 1);
+    return recordedBrokerPort === port;
+  }
+  return record.port === port;
 }
 
 function rotateLog(path) {
@@ -564,7 +897,12 @@ function startService(name) {
   closeSync(logFd);
   writeFileSync(
     service.pidFile(),
-    `${JSON.stringify({ pid: child.pid, port: service.port(cfg), startedAt: new Date().toISOString() })}\n`,
+    `${JSON.stringify({
+      pid: child.pid,
+      port: service.port(cfg),
+      ...(name === "n8n" ? { taskBrokerPort: cfg.taskBrokerPort } : {}),
+      startedAt: new Date().toISOString(),
+    })}\n`,
   );
   child.unref();
   return true;
@@ -573,7 +911,11 @@ function startService(name) {
 async function stopService(name) {
   const service = services[name];
   const record = readPidRecord(service);
-  if (record === null || !pidIsRunning(record.pid)) {
+  if (
+    record === null ||
+    !pidIsRunning(record.pid) ||
+    (isWindows && !windowsProcessMatchesService(record.pid, service))
+  ) {
     rmSync(service.pidFile(), { force: true });
     return false;
   }
@@ -615,8 +957,8 @@ async function stopService(name) {
 
   politeStop();
   // taskkill without /f usually cannot stop console services, so Windows
-  // moves to a forced, tree-wide stop quickly. POSIX gives n8n the same 30
-  // seconds of graceful shutdown the Docker path allowed.
+  // moves to a forced, tree-wide stop quickly. POSIX gives n8n 30 seconds for
+  // a graceful shutdown.
   const graceMs = isWindows ? 5_000 : 30_000;
   const deadline = Date.now() + graceMs;
   while (Date.now() < deadline && pidIsRunning(record.pid)) {
@@ -628,6 +970,15 @@ async function stopService(name) {
     while (Date.now() < forcedDeadline && pidIsRunning(record.pid)) {
       await sleep(250);
     }
+  }
+  if (
+    pidIsRunning(record.pid) &&
+    (!isWindows || windowsProcessMatchesService(record.pid, service))
+  ) {
+    throw new Error(
+      `Windows could not stop the ${service.label} process (PID ${record.pid}). ` +
+        "Close it in Task Manager, then rerun setup. The PID record was preserved to avoid modifying locked files.",
+    );
   }
   rmSync(service.pidFile(), { force: true });
   return true;
@@ -835,6 +1186,7 @@ async function importReviewedWorkflows() {
 async function commandPreflight() {
   let failures = 0;
   const ok = (message) => print(`  [ok] ${message}`);
+  const warning = (message) => print(`  [warn] ${message}`);
   const failure = (message) => {
     printError(`  [!!] ${message}`);
     failures += 1;
@@ -843,55 +1195,149 @@ async function commandPreflight() {
 
   print("AI Solopreneur local preflight\n");
 
-  if (nodeMajor() >= REQUIRED_NODE_MAJOR) {
-    ok(`Node.js ${process.versions.node} is available.`);
-    if (nodeMajor() > REQUIRED_NODE_MAJOR) {
-      note(
-        `This project is tested with Node.js ${REQUIRED_NODE_MAJOR} (LTS); newer versions usually work.`,
-      );
-    }
+  if (process.versions.node === pinnedNodeVersion) {
+    ok(`Reviewed Node.js ${process.versions.node} is available.`);
   } else {
     failure(
-      `Node.js ${REQUIRED_NODE_MAJOR} (LTS) or newer is required; found ${process.versions.node}.`,
+      `Node.js ${pinnedNodeVersion} is required for the pinned native dependencies; found ${process.versions.node}.`,
     );
     note("Run the supplied setup helper to download the verified project-local runtime.");
   }
 
-  const npmCheck = spawnSync("npm", ["--version"], {
-    shell: isWindows,
-    stdio: "ignore",
-  });
-  if (npmCheck.error || npmCheck.status !== 0) {
-    failure("npm is not available. It is installed together with Node.js.");
+  const npmVersion = installedNpmVersion();
+  if (npmVersion !== pinnedNpmVersion) {
+    failure(
+      `The matching npm ${pinnedNpmVersion} CLI is required; found ${npmVersion || "no working npm"}.`,
+    );
+    note("The supplied setup helper selects Node.js and npm as one reviewed pair.");
   } else {
-    ok("npm is available.");
+    ok(`Matching npm ${npmVersion} is available.`);
+  }
+
+  const writeProbe = join(projectRoot, `.ai-solo-write-test-${process.pid}`);
+  try {
+    writeFileSync(writeProbe, "ok\n", { flag: "wx" });
+    rmSync(writeProbe, { force: true });
+    ok("The project folder is writable.");
+  } catch (error) {
+    rmSync(writeProbe, { force: true });
+    failure(`The project folder is not writable (${error.code || error.message}).`);
+    note("Move the project to a normal folder owned by this Windows account.");
+  }
+
+  try {
+    const disk = statfsSync(projectRoot);
+    const availableBytes = Number(disk.bavail) * Number(disk.bsize);
+    const dependenciesReady =
+      n8nInstallIsCurrent() &&
+      existsSync(paths.documentWorkerDependency) &&
+      existsSync(join(paths.chatDir, "node_modules", "typescript"));
+    const minimumBytes = dependenciesReady
+      ? 1 * 1024 ** 3
+      : 6 * 1024 ** 3;
+    const availableGiB = availableBytes / 1024 ** 3;
+    if (availableBytes < minimumBytes) {
+      failure(
+        `${availableGiB.toFixed(1)} GB is free on this drive; ` +
+          `${dependenciesReady ? "1" : "6"} GB is required for ${
+            dependenciesReady ? "safe local operation" : "the first dependency install"
+          }.`,
+      );
+    } else {
+      ok(`${availableGiB.toFixed(1)} GB of free disk space is available.`);
+    }
+  } catch (error) {
+    warning(`Free disk space could not be checked (${error.message}).`);
+  }
+
+  if (isWindows) {
+    if (projectRoot.startsWith("\\\\")) {
+      failure("The project is on a network/UNC path, which npm native packages do not support reliably.");
+      note("Clone it to a short local path such as C:\\ai-workshop\\ai-solopreneur.");
+    }
+    if (/(^|[\\/])OneDrive([\\/]|$)/i.test(projectRoot)) {
+      warning("The project is inside OneDrive, which can lock files during the large npm install.");
+      note("If setup reports EPERM or EBUSY, clone to C:\\ai-workshop\\ai-solopreneur.");
+    }
+    if (projectRoot.length > 80) {
+      warning(`The project path is ${projectRoot.length} characters long.`);
+      note("A short path such as C:\\ai-workshop\\ai-solopreneur is more reliable for Windows native packages.");
+    }
   }
 
   const cfg = config();
-  for (const [port, name] of [
-    [cfg.chatPort, "chat"],
-    [cfg.n8nPort, "n8n"],
-    [cfg.documentWorkerPort, "documentWorker"],
-  ]) {
-    if (!validPort(port)) {
+  const configuredPorts = [
+    [cfg.chatPort, "chat", "CHAT_PORT"],
+    [cfg.n8nPort, "n8n", "N8N_PORT"],
+    [cfg.documentWorkerPort, "documentWorker", "DOCUMENT_WORKER_PORT"],
+    [cfg.taskBrokerPort, "taskBroker", "N8N_RUNNERS_BROKER_PORT"],
+  ];
+  const seenPorts = new Map();
+  for (const [port, name] of configuredPorts) {
+    if (validPort(port) && seenPorts.has(port)) {
       failure(
-        `${
-          name === "chat"
-            ? "CHAT_PORT"
-            : name === "n8n"
-              ? "N8N_PORT"
-              : "DOCUMENT_WORKER_PORT"
-        } must be a number between 1 and 65535.`,
+        `${name} and ${seenPorts.get(port)} are both configured to use port ${port}.`,
       );
+      note(
+        "Give CHAT_PORT, N8N_PORT, DOCUMENT_WORKER_PORT, and N8N_RUNNERS_BROKER_PORT different values in .env.",
+      );
+    } else if (validPort(port)) {
+      seenPorts.set(port, name);
+    }
+  }
+
+  for (const [port, name, configName] of configuredPorts) {
+    if (!validPort(port)) {
+      failure(`${configName} must be a number between 1 and 65535.`);
       continue;
     }
-    if (serviceIsRunning(services[name])) {
-      ok(`Port ${port} is owned by the running ${services[name].label} service.`);
-    } else if (await portInUse(port)) {
-      failure(`Port ${port} is already in use by another application.`);
-      note("Close that application or change the matching value in .env.");
+    const ownerService = name === "taskBroker" ? services.n8n : services[name];
+    const portLabel =
+      name === "taskBroker" ? "n8n task broker" : ownerService.label;
+    if (
+      serviceOwnsConfiguredPort(
+        ownerService,
+        port,
+        name === "taskBroker" ? "taskBroker" : "primary",
+      )
+    ) {
+      ok(`Port ${port} is owned by the running ${portLabel} service.`);
     } else {
-      ok(`Port ${port} is available.`);
+      const binding = await checkPortBinding(port);
+      if (binding.available) {
+        ok(`Port ${port} is available.`);
+      } else if (binding.code === "EADDRINUSE") {
+        failure(`Port ${port} is already in use by another application.`);
+        note("Close that application or change the matching value in .env.");
+      } else {
+        failure(`This computer would not allow the project to bind port ${port} (${binding.code}).`);
+        note(
+          isWindows
+            ? "Choose a different matching port in .env; Windows may have reserved this one."
+            : "Choose a different matching port in .env or review local network restrictions.",
+        );
+      }
+    }
+  }
+
+  const dependenciesReady =
+    n8nInstallIsCurrent() &&
+    existsSync(paths.documentWorkerDependency) &&
+    existsSync(join(paths.chatDir, "node_modules", "typescript"));
+  if (!dependenciesReady && npmVersion === pinnedNpmVersion) {
+    const registry = runNpmRaw(
+      ["ping", "--silent", "--registry=https://registry.npmjs.org"],
+      {
+        cwd: projectRoot,
+        stdio: "pipe",
+        timeout: 60_000,
+      },
+    );
+    if (registry.error || registry.status !== 0) {
+      failure("The reviewed npm client cannot reach registry.npmjs.org.");
+      note("Check the VPN, proxy, certificate, firewall, or managed-device policy before installing.");
+    } else {
+      ok("The npm package registry is reachable.");
     }
   }
 
@@ -905,6 +1351,10 @@ async function commandPreflight() {
 }
 
 async function commandSetup() {
+  return withOperationLock("setup", commandSetupUnlocked);
+}
+
+async function commandSetupUnlocked() {
   print("AI Solopreneur local setup\n");
 
   const preflightStatus = await commandPreflight();
@@ -920,31 +1370,77 @@ async function commandSetup() {
 
   ensureDirs();
 
-  if (installedN8nVersion() === pinnedN8nVersion) {
+  if (n8nInstallIsCurrent()) {
     print(`\nThe pinned local n8n engine (${pinnedN8nVersion}) is already installed.`);
   } else {
-    print(`\nDownloading the pinned local n8n engine (${pinnedN8nVersion}) with npm...`);
+    print(`\nInstalling the pinned local n8n engine (${pinnedN8nVersion}) with npm...`);
     print("The first download is large; this can take several minutes.");
+    rmSync(paths.n8nInstallStamp, { force: true });
     const rootInstallArgs = existsSync(join(projectRoot, "package-lock.json"))
-      ? ["ci", "--no-audit", "--no-fund"]
-      : ["install", "--no-audit", "--no-fund"];
+      ? [
+          "ci",
+          "--no-audit",
+          "--no-fund",
+          "--include=optional",
+          "--ignore-scripts=false",
+          "--bin-links=true",
+          "--strict-allow-scripts",
+        ]
+      : [
+          "install",
+          "--no-audit",
+          "--no-fund",
+          "--include=optional",
+          "--ignore-scripts=false",
+          "--bin-links=true",
+          "--strict-allow-scripts",
+        ];
     runNpm(rootInstallArgs, {
       cwd: projectRoot,
       label: "Installing the local n8n engine",
+      timeout: npmInstallTimeoutMs,
     });
+    if (!n8nNativeDependenciesWork()) {
+      throw new Error(
+        "The n8n install completed without working sqlite3 and isolated-vm native modules. " +
+          "Rerun setup; if it repeats on Windows, use a short local folder outside OneDrive and check that GitHub release assets are allowed.",
+      );
+    }
+    recordSuccessfulN8nInstall();
   }
 
   print("\nInstalling the local document reader...");
-  runNpm(["ci", "--no-audit", "--no-fund", "--ignore-scripts"], {
-    cwd: paths.documentWorkerDir,
-    label: "Installing the local document reader",
-  });
+  runNpm(
+    [
+      "ci",
+      "--no-audit",
+      "--no-fund",
+      "--include=optional",
+      "--ignore-scripts",
+      "--bin-links=true",
+    ],
+    {
+      cwd: paths.documentWorkerDir,
+      label: "Installing the local document reader",
+    },
+  );
 
   print("\nBuilding the local chat app...");
-  runNpm(["ci", "--no-audit", "--no-fund", "--ignore-scripts"], {
-    cwd: paths.chatDir,
-    label: "Installing the chat build tools",
-  });
+  runNpm(
+    [
+      "ci",
+      "--no-audit",
+      "--no-fund",
+      "--include=dev",
+      "--include=optional",
+      "--ignore-scripts",
+      "--bin-links=true",
+    ],
+    {
+      cwd: paths.chatDir,
+      label: "Installing the chat build tools",
+    },
+  );
   runNpm(["run", "build"], {
     cwd: paths.chatDir,
     label: "Building the chat app",
@@ -978,6 +1474,10 @@ async function commandSetup() {
 }
 
 async function commandStart() {
+  return withOperationLock("start", commandStartUnlocked);
+}
+
+async function commandStartUnlocked() {
   requireLocalInstall();
   ensureDocumentWorkerInstalled();
   ensureChatBuilt();
@@ -1014,7 +1514,7 @@ async function commandStatus() {
   for (const name of ["n8n", "documentWorker", "chat"]) {
     const service = services[name];
     const record = readPidRecord(service);
-    const running = record !== null && pidIsRunning(record.pid);
+    const running = serviceIsRunning(service);
     const health = running
       ? await fetchStatus(service.healthUrl(cfg), {}, 3_000)
       : null;
@@ -1135,10 +1635,37 @@ async function commandExportWorkflows() {
   return 0;
 }
 
+function sqliteQuickCheck(databasePath) {
+  const script = [
+    "const { DatabaseSync } = require('node:sqlite');",
+    "const database = new DatabaseSync(process.argv[1], { readOnly: true });",
+    "const row = database.prepare('PRAGMA quick_check').get();",
+    "const version = database.prepare('PRAGMA user_version').get();",
+    "database.close();",
+    "if (row.quick_check !== 'ok') process.exit(2);",
+    "process.stdout.write(String(version.user_version));",
+  ].join(" ");
+  const result = spawnSync(process.execPath, ["-e", script, databasePath], {
+    encoding: "utf8",
+    env: process.env,
+  });
+  return {
+    ok: result.status === 0,
+    schemaVersion:
+      result.status === 0 && /^\d+$/.test(result.stdout.trim())
+        ? Number(result.stdout.trim())
+        : null,
+  };
+}
+
 async function commandBackup() {
   requireLocalInstall();
   if (!existsSync(paths.n8nDataDir)) {
     printError("There is no local n8n data to back up yet. Run setup first.");
+    return 1;
+  }
+  if (!existsSync(paths.chatDatabase)) {
+    printError("There is no local chat database to back up yet. Start the local app once, then try again.");
     return 1;
   }
 
@@ -1148,8 +1675,13 @@ async function commandBackup() {
     await chmod(backupDir, 0o700);
   }
 
-  const wasRunning = serviceIsRunning(services.n8n);
-  if (wasRunning) {
+  const wasChatRunning = serviceIsRunning(services.chat);
+  const wasN8nRunning = serviceIsRunning(services.n8n);
+  if (wasChatRunning) {
+    print("Briefly stopping chat for a consistent history backup...");
+    await stopService("chat");
+  }
+  if (wasN8nRunning) {
     print("Briefly stopping n8n for a consistent backup...");
     await stopService("n8n");
   }
@@ -1173,16 +1705,41 @@ async function commandBackup() {
         await chmod(join(backupDir, "env.backup"), 0o600);
       }
     }
+
+    cpSync(paths.chatDataDir, join(backupDir, "chat-data"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(backupDir, "backup.json"),
+      `${JSON.stringify(
+        {
+          schemaVersion: 2,
+          createdAt: new Date().toISOString(),
+          contains: {
+            n8n: true,
+            chatHistory: true,
+            environment: existsSync(paths.envFile),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { encoding: "utf8", mode: 0o600 },
+    );
   } finally {
-    if (wasRunning) {
+    if (wasN8nRunning) {
       startService("n8n");
       await waitForService("n8n");
+    }
+    if (wasChatRunning) {
+      startService("chat");
+      await waitForService("chat");
     }
   }
 
   print("Backup created at:");
   print(`  ${backupDir}`);
-  print("It contains encrypted credentials and local settings. Keep it private.");
+  print("It contains plaintext chat transcripts, encrypted credentials, and local settings. Keep it private.");
   return 0;
 }
 
@@ -1198,15 +1755,69 @@ async function commandRestore(args) {
   const backupDir = isAbsolute(target) ? target : resolve(process.cwd(), target);
   const archive = join(backupDir, "n8n-data.tar.gz");
   const plainCopy = join(backupDir, "n8n-data");
+  const manifestPath = join(backupDir, "backup.json");
+  const chatBackupDir = join(backupDir, "chat-data");
+  const chatBackupDatabase = join(chatBackupDir, "chat.sqlite");
   if (!existsSync(archive) && !existsSync(plainCopy)) {
     printError("Backup is incomplete. Expected n8n-data.tar.gz (or an n8n-data folder).");
     return 1;
   }
 
-  print("This replaces all current local n8n users, credentials, workflows, and history.");
+  const hasManifest = existsSync(manifestPath);
+  if (hasManifest) {
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch {
+      printError("Backup manifest is invalid. No local data was changed.");
+      return 1;
+    }
+    if (
+      manifest.schemaVersion !== 2 ||
+      manifest.contains?.n8n !== true ||
+      manifest.contains?.chatHistory !== true ||
+      !existsSync(chatBackupDatabase)
+    ) {
+      printError("Backup is incomplete. Expected a version 2 manifest and chat-data/chat.sqlite.");
+      return 1;
+    }
+    const chatCheck = sqliteQuickCheck(chatBackupDatabase);
+    if (!chatCheck.ok || chatCheck.schemaVersion !== 1) {
+      printError("The backed-up chat database failed its integrity or schema check. No local data was changed.");
+      return 1;
+    }
+  }
+
+  print(
+    hasManifest
+      ? "This replaces current local chats, n8n users, credentials, workflows, and history."
+      : "This is an older n8n-only backup. It replaces n8n users, credentials, workflows, and history, but leaves current saved chats unchanged.",
+  );
   if (!assumeYes && !(await confirmPhrase("Type RESTORE to continue: ", "RESTORE"))) {
     print("Restore cancelled.");
     return 0;
+  }
+
+  const restoreStagingDir = join(paths.tmpDir, `restore-${timestamp()}`);
+  const stagedN8nData = join(restoreStagingDir, "n8n-data");
+  const stagedChatData = join(restoreStagingDir, "chat-data");
+  rmSync(restoreStagingDir, { recursive: true, force: true });
+  mkdirSync(stagedN8nData, { recursive: true });
+
+  if (existsSync(archive)) {
+    const tar = spawnSync("tar", ["-xzf", archive, "-C", stagedN8nData], {
+      stdio: "inherit",
+    });
+    if (tar.error || tar.status !== 0) {
+      rmSync(restoreStagingDir, { recursive: true, force: true });
+      throw new Error("Unpacking the backup archive failed. Current local data was not changed.");
+    }
+  } else {
+    rmSync(stagedN8nData, { recursive: true, force: true });
+    cpSync(plainCopy, stagedN8nData, { recursive: true });
+  }
+  if (hasManifest) {
+    cpSync(chatBackupDir, stagedChatData, { recursive: true });
   }
 
   await stopService("chat");
@@ -1214,18 +1825,15 @@ async function commandRestore(args) {
   await stopService("n8n");
 
   rmSync(paths.n8nDataDir, { recursive: true, force: true });
-  mkdirSync(paths.n8nDataDir, { recursive: true });
+  mkdirSync(paths.n8nUserFolder, { recursive: true });
+  renameSync(stagedN8nData, paths.n8nDataDir);
 
-  if (existsSync(archive)) {
-    const tar = spawnSync("tar", ["-xzf", archive, "-C", paths.n8nDataDir], {
-      stdio: "inherit",
-    });
-    if (tar.error || tar.status !== 0) {
-      throw new Error("Unpacking the backup archive failed.");
-    }
-  } else {
-    cpSync(plainCopy, paths.n8nDataDir, { recursive: true });
+  if (hasManifest) {
+    rmSync(paths.chatDataDir, { recursive: true, force: true });
+    mkdirSync(dirname(paths.chatDataDir), { recursive: true });
+    renameSync(stagedChatData, paths.chatDataDir);
   }
+  rmSync(restoreStagingDir, { recursive: true, force: true });
 
   const envBackup = join(backupDir, "env.backup");
   if (existsSync(envBackup)) {
@@ -1236,7 +1844,11 @@ async function commandRestore(args) {
   }
 
   await startStack();
-  print("Backup restored and the local stack is healthy.");
+  print(
+    hasManifest
+      ? "Backup restored, including saved chats, and the local stack is healthy."
+      : "Older n8n backup restored. Current saved chats were preserved and the local stack is healthy.",
+  );
   return 0;
 }
 
@@ -1244,6 +1856,7 @@ async function commandReset(args) {
   const assumeYes = args.includes("--yes");
   if (
     !existsSync(paths.n8nDataDir) &&
+    !existsSync(paths.chatDataDir) &&
     !existsSync(paths.documentDataDir) &&
     !serviceIsRunning(services.n8n)
   ) {
@@ -1253,7 +1866,7 @@ async function commandReset(args) {
 
   if (!assumeYes) {
     print(
-      "This permanently removes local n8n users, credentials, workflows, history, and extracted document context.",
+      "This permanently removes saved chat transcripts, search data, local n8n users, credentials, workflows, execution history, and extracted document context.",
     );
     print("Create a backup first if any of that data matters.");
     if (!(await confirmPhrase("Type RESET to continue: ", "RESET"))) {
@@ -1266,11 +1879,12 @@ async function commandReset(args) {
   await stopService("documentWorker");
   await stopService("n8n");
   rmSync(paths.n8nUserFolder, { recursive: true, force: true });
+  rmSync(paths.chatDataDir, { recursive: true, force: true });
   rmSync(paths.documentDataDir, { recursive: true, force: true });
   rmSync(paths.tmpDir, { recursive: true, force: true });
 
   print(
-    "Local n8n and extracted document data have been removed. The private .env file was preserved.",
+    "Saved chats, local n8n data, and extracted document data have been removed. The private .env file was preserved.",
   );
   print("Run ./start.command to create a fresh local instance.");
   return 0;
@@ -1340,6 +1954,18 @@ async function commandDiagnose() {
   } else {
     failure(`The chat is not healthy at localhost:${cfg.chatPort}.`);
   }
+  if (existsSync(paths.chatDatabase)) {
+    const chatDatabaseCheck = sqliteQuickCheck(paths.chatDatabase);
+    if (chatDatabaseCheck.ok && chatDatabaseCheck.schemaVersion === 1) {
+      ok("The local chat database and search index are ready (schema 1).");
+    } else {
+      failure(
+        "The local chat database failed its integrity or schema check. Create a private backup before troubleshooting it.",
+      );
+    }
+  } else {
+    failure("The local chat database is missing. Restart the local stack to create it.");
+  }
   const documentHealth = await fetchStatus(
     `http://127.0.0.1:${cfg.documentWorkerPort}/health`,
   );
@@ -1401,13 +2027,10 @@ async function commandDiagnose() {
       } else {
         action("Create an Anthropic credential named Anthropic account and select it in Claude - Sonnet 4.6.");
       }
-
     }
 
-    const agentHealth = await fetchStatus(
-      `http://127.0.0.1:${cfg.n8nPort}/webhook/agent-health`,
-    );
-    if (agentHealth !== null && agentHealth.ok) {
+    const agentHealth = exportedWorkflow(workflowIds.health);
+    if (agentHealth?.active === true) {
       ok("The optional agent-health workflow is published.");
     } else {
       action("Publish 90 - DEBUG - Agent Health for the safe local health check.");
@@ -1460,10 +2083,10 @@ Maintenance commands:
   import-workflows   Re-import the reviewed workflows, sample data, and skills.
   sync-skills        Validate and load the enabled Markdown skills.
   export-workflows   Export normalised workflow copies for Git review.
-  backup             Save a private copy of all local n8n data.
-  restore <folder>   Replace local n8n data with a saved backup.
-  reset [--yes]      Permanently remove local n8n and document data.
-  preflight          Check Node.js, npm, and the three local ports.
+  backup             Save a private copy of chats, n8n data, and settings.
+  restore <folder>   Restore chats and n8n data from a saved backup.
+  reset [--yes]      Permanently remove chats, local n8n, and document data.
+  preflight          Check Node.js, npm, disk, network, and local ports.
   logs [n8n|chat|documents]
                      Show the last lines of a service log.
   n8n <args...>      Run the pinned n8n CLI with this project's settings.`);

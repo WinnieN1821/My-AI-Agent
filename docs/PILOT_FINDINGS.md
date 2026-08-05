@@ -8,9 +8,11 @@ The canonical record is `pilot/results.json`. It contains zero participants and
 is intentionally evaluated as `NO_GO`. No human usability result is claimed in
 this document until real anonymous sessions are recorded.
 
-## Automated engineering findings
+## Historical engineering findings
 
-These checks reduce pilot risk but do not replace the pilot.
+These checks reduced pilot risk but did not replace the pilot. They record the
+state before the automated test and CI/CD assets were removed at the repository
+owner's direction in August 2026; the checks are no longer runnable here.
 
 GitHub Actions run `30198827506` passed on 2026-07-26 for evidence commit
 `adff923`.
@@ -18,7 +20,7 @@ GitHub Actions run `30198827506` passed on 2026-07-26 for evidence commit
 | Area | Evidence | Current result |
 | --- | --- | --- |
 | Chat contract | Gateway unit tests cover valid requests, malformed input, timeouts, inactive webhooks, invalid credentials, exhausted credit, provider network failure, rate limiting, malformed provider output, and secret suppression | Passing locally and in CI on 2026-07-26 |
-| Container health | Phase 7 smoke starts the isolated stack, checks both health endpoints, restarts containers, and checks recovery | Passing locally and in CI on 2026-07-26 |
+| Service health | Phase 7 smoke starts the isolated native stack, checks both health endpoints, restarts services, and checks recovery | Passing locally and in CI on 2026-07-26 |
 | Occupied ports | Phase 7 smoke runs preflight from a second project while both configured ports are held by the test stack | Passing locally and in CI on 2026-07-26 |
 | Pilot evidence | Unit tests prove a complete passing fixture returns `GO`, incomplete evidence returns `NO_GO`, and personal-data fields are rejected | Passing locally and in CI on 2026-07-26 |
 | Browser widths | Pinned Chromium checks at 375, 768, and 1440 pixels | Passing locally and in CI on 2026-07-26 |
@@ -27,7 +29,7 @@ GitHub Actions run `30198827506` passed on 2026-07-26 for evidence commit
 
 The automated suite proves safe error contracts for simulated invalid-key,
 exhausted-credit, and provider-network failures. It also exercises an inactive
-workflow, occupied ports, container restart, and loss of the local n8n service.
+workflow, occupied ports, native service restart, and loss of the local n8n service.
 The supervised checks using real Anthropic account states and a fully offline
 machine remain pending; an HTTP fixture is not evidence that those external
 conditions behaved correctly.
@@ -42,7 +44,7 @@ Date: 2026-07-26.
 | 768 × 1024 | None | Yes | Shift+Enter retained focus and inserted a newline | Pass |
 | 1440 × 900 | None | Yes | Shift+Enter retained focus and inserted a newline | Pass |
 
-This is an automated Chromium result from `scripts/test-phase7.sh`. It does not
+This is a historical automated Chromium result. It does not
 claim Safari, Edge, assistive-technology, macOS learner, or Windows learner
 coverage; those remain human-pilot evidence.
 
