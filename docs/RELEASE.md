@@ -74,7 +74,8 @@ Anthropic API key.
 
 ## Create and verify the tag
 
-Tag only the commit whose complete CI run is green:
+Tag only a commit whose retained validators pass and whose manual release
+verification below is complete:
 
 ```bash
 git tag -a v0.2.0 -m "AI Solopreneur local release v0.2.0"

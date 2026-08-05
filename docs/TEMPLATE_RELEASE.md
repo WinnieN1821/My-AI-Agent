@@ -94,6 +94,7 @@ Before teaching:
 - Add topics such as `n8n`, `claude`, `nodejs`, `ai-agent`, and `beginner-friendly`.
 - Record the tested n8n release and release commit.
 - Generate and verify the source instructor kit in [RELEASE.md](RELEASE.md).
-- Create the annotated `v0.2.0` tag only after the release commit's CI is green.
+- Create the annotated `v0.2.0` tag only after the release commit passes the
+  retained validators and the manual release verification in [RELEASE.md](RELEASE.md).
 - Keep the repository private until its intended audience and secret-handling process are agreed.
 - Never include Git LFS assets; GitHub template repositories do not support them.
