@@ -52,6 +52,14 @@
       "workflowId": "phase9GetBusinessMemory"
     },
     {
+      "id": "lookup_linkedin_profile",
+      "risk": "paid_external_read",
+      "available": true,
+      "modelCallable": true,
+      "mode": "explicit_user_credit_approval_required",
+      "workflowId": "phase12LookupLinkedInProfile"
+    },
+    {
       "id": "delete_task",
       "risk": "destructive",
       "available": false,

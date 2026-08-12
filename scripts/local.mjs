@@ -114,6 +114,7 @@ const workflowIds = {
     "phase9StartDomainResearch",
     "phase9CompleteDomainResearch",
     "phase9GetBusinessMemory",
+    "phase12LookupLinkedInProfile",
   ],
 };
 
@@ -131,6 +132,7 @@ const exportedWorkflowFiles = [
   ["phase9StartDomainResearch", "50-tool-start-domain-research.json"],
   ["phase9CompleteDomainResearch", "51-tool-complete-domain-research.json"],
   ["phase9GetBusinessMemory", "52-tool-get-business-memory.json"],
+  ["phase12LookupLinkedInProfile", "61-tool-lookup-linkedin-profile.json"],
   ["phase3AgentHealth", "90-debug-agent-health.json"],
 ];
 
