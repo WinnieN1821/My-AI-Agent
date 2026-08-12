@@ -28,10 +28,14 @@
     {
       "id": "marketing",
       "name": "Marketing",
-      "description": "Campaign planning, content, and marketing operations.",
-      "status": "coming-soon",
-      "workflowPath": "",
-      "examplePrompts": []
+      "description": "Researches domains and search demand, plans campaigns, and turns findings into content.",
+      "status": "active",
+      "workflowPath": "/webhook/chat",
+      "examplePrompts": [
+        "Research this business domain and tell me the best keywords to go after",
+        "Who are our real competitors, and who just competes with us in Google?",
+        "Turn this research into a content plan for the next month"
+      ]
     },
     {
       "id": "investment",

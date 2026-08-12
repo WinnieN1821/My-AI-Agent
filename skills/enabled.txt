@@ -4,5 +4,6 @@ meeting-analysis
 task-capture
 weekly-status
 domain-research
+paid-domain-research
 linkedin-profile-lookup
 linkedin-prospect-search
