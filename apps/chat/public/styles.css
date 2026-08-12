@@ -102,6 +102,14 @@ textarea:focus-visible,
     var(--panel);
 }
 
+/* Keep each panel section at its natural height. Without this the sections
+   shrink below their content on a short window, and because the agent and
+   history grids inside them do not shrink, their cards paint over the section
+   below instead of the panel scrolling. */
+.agent-panel > * {
+  flex-shrink: 0;
+}
+
 .history-close {
   display: none;
 }
@@ -456,8 +464,16 @@ textarea:focus-visible,
   gap: 0.75rem;
 }
 
+/* The conversation title sits in a plain wrapper inside the identity flex row.
+   Without min-width: 0 that wrapper refuses to shrink, so a long title runs
+   underneath the header buttons instead of showing its ellipsis. */
+.chat-header__identity > * {
+  min-width: 0;
+}
+
 .chat-header__actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
 }
