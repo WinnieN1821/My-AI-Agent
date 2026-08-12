@@ -111,6 +111,9 @@ const workflowIds = {
     "phase5ProposeCreateTask",
     "phase5ProposeTaskStatus",
     "phase5ConfirmTaskWrite",
+    "phase9StartDomainResearch",
+    "phase9CompleteDomainResearch",
+    "phase9GetBusinessMemory",
   ],
 };
 
@@ -125,6 +128,9 @@ const exportedWorkflowFiles = [
   ["phase5ProposeCreateTask", "30-tool-propose-create-task.json"],
   ["phase5ProposeTaskStatus", "31-tool-propose-update-task-status.json"],
   ["phase5ConfirmTaskWrite", "40-confirm-task-write.json"],
+  ["phase9StartDomainResearch", "50-tool-start-domain-research.json"],
+  ["phase9CompleteDomainResearch", "51-tool-complete-domain-research.json"],
+  ["phase9GetBusinessMemory", "52-tool-get-business-memory.json"],
   ["phase3AgentHealth", "90-debug-agent-health.json"],
 ];
 
@@ -1635,6 +1641,11 @@ async function commandExportWorkflows() {
   return 0;
 }
 
+// Chat database schemas this runner accepts. The chat app owns the migration
+// (see SCHEMA_VERSION in apps/chat/src/chat-store.ts); it upgrades 1 to 2 when
+// it opens the file, so both are safe to diagnose and to restore.
+const SUPPORTED_CHAT_SCHEMA_VERSIONS = [1, 2];
+
 function sqliteQuickCheck(databasePath) {
   const script = [
     "const { DatabaseSync } = require('node:sqlite');",
@@ -1782,7 +1793,9 @@ async function commandRestore(args) {
       return 1;
     }
     const chatCheck = sqliteQuickCheck(chatBackupDatabase);
-    if (!chatCheck.ok || chatCheck.schemaVersion !== 1) {
+    // Schema 1 predates domain research; schema 2 adds the business-memory
+    // tables. Both restore safely because the chat app migrates on open.
+    if (!chatCheck.ok || !SUPPORTED_CHAT_SCHEMA_VERSIONS.includes(chatCheck.schemaVersion)) {
       printError("The backed-up chat database failed its integrity or schema check. No local data was changed.");
       return 1;
     }
@@ -1956,8 +1969,13 @@ async function commandDiagnose() {
   }
   if (existsSync(paths.chatDatabase)) {
     const chatDatabaseCheck = sqliteQuickCheck(paths.chatDatabase);
-    if (chatDatabaseCheck.ok && chatDatabaseCheck.schemaVersion === 1) {
-      ok("The local chat database and search index are ready (schema 1).");
+    if (
+      chatDatabaseCheck.ok &&
+      SUPPORTED_CHAT_SCHEMA_VERSIONS.includes(chatDatabaseCheck.schemaVersion)
+    ) {
+      ok(
+        `The local chat database and search index are ready (schema ${chatDatabaseCheck.schemaVersion}).`,
+      );
     } else {
       failure(
         "The local chat database failed its integrity or schema check. Create a private backup before troubleshooting it.",
