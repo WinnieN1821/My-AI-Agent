@@ -56,6 +56,7 @@ const runtimeRoot = resolve(
 const npmInstallTimeoutMs = 30 * 60 * 1_000;
 const npmCommandTimeoutMs = 10 * 60 * 1_000;
 const n8nCliTimeoutMs = 5 * 60 * 1_000;
+const chatDatabaseSchemaVersion = 5;
 
 const paths = {
   envFile: join(projectRoot, ".env"),
@@ -117,6 +118,9 @@ const workflowIds = {
     "phase11StartPaidDomainResearch",
     "phase11CompletePaidDomainResearch",
     "phase11GetPaidDomainResearch",
+    "phase13StartSeoArticle",
+    "phase13WriteSeoArticle",
+    "phase13GetSeoArticle",
     "phase12LookupLinkedInProfile",
   ],
 };
@@ -138,6 +142,9 @@ const exportedWorkflowFiles = [
   ["phase11StartPaidDomainResearch", "53-tool-start-paid-domain-research.json"],
   ["phase11CompletePaidDomainResearch", "54-tool-complete-paid-domain-research.json"],
   ["phase11GetPaidDomainResearch", "55-tool-get-paid-domain-research.json"],
+  ["phase13StartSeoArticle", "56-tool-start-seo-article.json"],
+  ["phase13WriteSeoArticle", "57-internal-write-seo-article.json"],
+  ["phase13GetSeoArticle", "58-tool-get-seo-article.json"],
   ["phase12LookupLinkedInProfile", "61-tool-lookup-linkedin-profile.json"],
   ["phase3AgentHealth", "90-debug-agent-health.json"],
 ];
@@ -1134,6 +1141,35 @@ async function compileSkillBundle() {
   return JSON.stringify(await compileSkills());
 }
 
+// n8n's Overview page is always a flat list of every workflow; skillsUrl points
+// a learner at the local owner's Personal project, which is the same list but
+// filterable, so it stays useful whether or not workflows are grouped.
+function personalProjectId() {
+  const databasePath = join(paths.n8nDataDir, "database.sqlite");
+  if (!existsSync(databasePath)) {
+    return null;
+  }
+  const script = [
+    "const { DatabaseSync } = require('node:sqlite');",
+    "const database = new DatabaseSync(process.argv[1], { readOnly: true });",
+    "const row = database.prepare(\"SELECT id FROM project WHERE type = 'personal' ORDER BY createdAt ASC LIMIT 1\").get();",
+    "database.close();",
+    "if (row) process.stdout.write(row.id);",
+  ].join(" ");
+  const result = spawnSync(process.execPath, ["-e", script, databasePath], {
+    encoding: "utf8",
+    env: process.env,
+  });
+  const id = result.status === 0 ? result.stdout.trim() : "";
+  return /^[A-Za-z0-9_-]+$/.test(id) ? id : null;
+}
+
+function skillsUrl(cfg) {
+  const projectId = personalProjectId();
+  const base = `http://localhost:${cfg.n8nPort}`;
+  return projectId ? `${base}/projects/${projectId}/workflows` : null;
+}
+
 async function importReviewedWorkflows() {
   validateWorkflowFiles();
 
@@ -1187,7 +1223,10 @@ async function importReviewedWorkflows() {
   print("Local task tables and three sample tasks are ready.");
   print("Enabled Markdown skills are synced into the agent.");
   const cfg = config();
-  print(`Open http://localhost:${cfg.n8nPort} and follow docs/N8N_AGENT_SETUP.md.`);
+  const skills = skillsUrl(cfg);
+  print(
+    `Open ${skills ?? `http://localhost:${cfg.n8nPort}`} and follow docs/N8N_AGENT_SETUP.md.`,
+  );
   print(
     "The main agent stays inactive until you select your Anthropic credential and publish it.",
   );
@@ -1480,9 +1519,13 @@ async function commandSetupUnlocked() {
   await waitForService("chat");
 
   const cfg = config();
+  const skills = skillsUrl(cfg);
   print("\nLocal stack is healthy.");
   print(`  Chat app:          http://localhost:${cfg.chatPort}`);
   print(`  n8n editor:        http://localhost:${cfg.n8nPort}`);
+  if (skills) {
+    print(`  Your agent's skills: ${skills}`);
+  }
   print("  Next: create the local n8n owner, then open 01 - START HERE - Learner Checklist.");
   return 0;
 }
@@ -1499,9 +1542,13 @@ async function commandStartUnlocked() {
   await startStack();
 
   const cfg = config();
+  const skills = skillsUrl(cfg);
   print("AI Solopreneur is healthy.");
   print(`  Chat app:          http://localhost:${cfg.chatPort}`);
   print(`  n8n editor:        http://localhost:${cfg.n8nPort}`);
+  if (skills) {
+    print(`  Your agent's skills: ${skills}`);
+  }
   return 0;
 }
 
@@ -1648,11 +1695,6 @@ async function commandExportWorkflows() {
   );
   return 0;
 }
-
-// Chat database schemas this runner accepts. The chat app owns the migration
-// (see SCHEMA_VERSION in apps/chat/src/chat-store.ts); it upgrades 1 to 2 when
-// it opens the file, so both are safe to diagnose and to restore.
-const SUPPORTED_CHAT_SCHEMA_VERSIONS = [1, 2];
 
 function sqliteQuickCheck(databasePath) {
   const script = [
@@ -1801,9 +1843,7 @@ async function commandRestore(args) {
       return 1;
     }
     const chatCheck = sqliteQuickCheck(chatBackupDatabase);
-    // Schema 1 predates domain research; schema 2 adds the business-memory
-    // tables. Both restore safely because the chat app migrates on open.
-    if (!chatCheck.ok || !SUPPORTED_CHAT_SCHEMA_VERSIONS.includes(chatCheck.schemaVersion)) {
+    if (!chatCheck.ok || chatCheck.schemaVersion !== chatDatabaseSchemaVersion) {
       printError("The backed-up chat database failed its integrity or schema check. No local data was changed.");
       return 1;
     }
@@ -1979,10 +2019,10 @@ async function commandDiagnose() {
     const chatDatabaseCheck = sqliteQuickCheck(paths.chatDatabase);
     if (
       chatDatabaseCheck.ok &&
-      SUPPORTED_CHAT_SCHEMA_VERSIONS.includes(chatDatabaseCheck.schemaVersion)
+      chatDatabaseCheck.schemaVersion === chatDatabaseSchemaVersion
     ) {
       ok(
-        `The local chat database and search index are ready (schema ${chatDatabaseCheck.schemaVersion}).`,
+        `The local chat database and search index are ready (schema ${chatDatabaseSchemaVersion}).`,
       );
     } else {
       failure(
@@ -2030,12 +2070,19 @@ async function commandDiagnose() {
           { capture: true },
         );
         if (result.status === 0) {
-          const reference = mainWorkflow.nodes?.find(
-            (node) => node.name === "Claude - Sonnet 4.6",
-          )?.credentials?.anthropicApi;
+          const articleWorkflow = exportedWorkflow("phase13WriteSeoArticle");
+          const references = [
+            mainWorkflow.nodes?.find((node) => node.name === "Claude - Sonnet 4.6")
+              ?.credentials?.anthropicApi,
+            articleWorkflow?.nodes?.find((node) => node.name === "Draft With Claude")
+              ?.credentials?.anthropicApi,
+            articleWorkflow?.nodes?.find((node) => node.name === "Repair With Claude")
+              ?.credentials?.anthropicApi,
+          ].filter(Boolean);
           const credentials = readExportedRows(credentialExport);
-          credentialSelected = Boolean(
-            reference?.id &&
+          credentialSelected = references.length === 3 && references.every(
+            (reference) =>
+              reference?.id &&
               credentials.some(
                 (credential) =>
                   credential.id === reference.id &&
@@ -2049,13 +2096,11 @@ async function commandDiagnose() {
         rmSync(credentialExport, { force: true });
       }
       if (credentialSelected) {
-        ok("An Anthropic credential exists and is selected by the Claude node.");
+        ok("An Anthropic credential is selected by the agent and article writer.");
       } else {
-        action("Create an Anthropic credential named Anthropic account and select it in Claude - Sonnet 4.6.");
+        action("Create an Anthropic credential named Anthropic account and select it in the agent plus both Claude nodes in workflow 57.");
       }
 
-      // Paid domain research needs its own credential. This only checks that a
-      // selection exists; it never calls DataForSEO and never shows any value.
       const paidWorkflow = exportedWorkflow("phase11StartPaidDomainResearch");
       const dataForSeoCredentialExport = tmpPath("diagnostic-dataforseo-credentials.json");
       let dataForSeoCredentialSelected = false;
@@ -2086,7 +2131,7 @@ async function commandDiagnose() {
       if (dataForSeoCredentialSelected) {
         ok("A DataForSEO Basic Auth credential is selected by the paid research workflow.");
       } else {
-        action("Create a Basic Auth credential named DataForSEO API with your DataForSEO API login and API password, then select it on every DataForSEO node in workflow 53. The type is listed as Basic Auth, and is easiest to add from inside one of those nodes.");
+        action("Create an HTTP Basic Auth credential named DataForSEO API with your API login and API password, then select it on every DataForSEO node in workflow 53.");
       }
     }
 
