@@ -2086,7 +2086,7 @@ async function commandDiagnose() {
       if (dataForSeoCredentialSelected) {
         ok("A DataForSEO Basic Auth credential is selected by the paid research workflow.");
       } else {
-        action("Create an HTTP Basic Auth credential named DataForSEO API with your API login and API password, then select it on every DataForSEO node in workflow 53.");
+        action("Create a Basic Auth credential named DataForSEO API with your DataForSEO API login and API password, then select it on every DataForSEO node in workflow 53. The type is listed as Basic Auth, and is easiest to add from inside one of those nodes.");
       }
     }
 

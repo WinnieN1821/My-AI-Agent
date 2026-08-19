@@ -10,14 +10,19 @@ Paid research uses reviewed built-in n8n HTTP Request nodes. It does not install
 
 DataForSEO authenticates API requests with the API login and API password shown in its dashboard. These are never pasted into this repository or the chat.
 
+In this version of n8n the type is listed as **Basic Auth**, not "HTTP Basic Auth". It is a generic auth type, so the most reliable route is to create it from inside the workflow, which also selects it on the node:
+
 1. Open local n8n at [http://localhost:5678](http://localhost:5678).
-2. Open **Credentials**, select **Create credential**, and choose **HTTP Basic Auth**.
-3. Name it exactly `DataForSEO API`.
-4. Put the DataForSEO API login in **User** and the API password in **Password**.
-5. Save the credential.
-6. Open `53 - TOOL - start_paid_domain_research`.
-7. Open each of the six nodes whose name starts with **DataForSEO**, select `DataForSEO API`, and save the workflow.
-8. Publish workflow `53` so the agent uses the credential selections.
+2. Open `53 - TOOL - start_paid_domain_research`.
+3. Open the **DataForSEO Ranked Keywords** node. Its Authentication is already set to *Generic Credential Type*, with *Generic Auth Type* of *Basic Auth*.
+4. In the credential dropdown, choose **Create new credential**.
+5. Name it exactly `DataForSEO API`. The workflow matches on that name.
+6. Put the DataForSEO **API login** in **User** and the **API password** in **Password**. Both come from the DataForSEO dashboard under API access. They are not your dataforseo.com account email and account password.
+7. Save the credential.
+8. Open each of the other five nodes whose name starts with **DataForSEO**, select the existing `DataForSEO API` credential, and save the workflow.
+9. Publish workflow `53` so the agent uses the credential selections.
+
+You can also reach it from **Credentials -> Create credential** by searching for **Basic Auth**, then select it on the six nodes as above.
 
 n8n stores the credential in its encrypted local store under Git-ignored `data/n8n/`. Never put either value in `.env`, a Markdown skill, a workflow note, a screenshot, a Git commit, a log, or a chat message. See DataForSEO's [API authentication documentation](https://docs.dataforseo.com/v3/auth/) for the provider-side credential format.
 
